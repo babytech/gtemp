@@ -1,0 +1,29 @@
+{
+  "Sampling": {
+    "low": -40,
+    "high": 100,
+    "step": 5,
+    "interval": 3
+  },
+  "Persistence": {
+    "interval": 15,
+    "file": "/tmp/temp/data_file"
+  },
+  "Notify": {
+    "file": "/tmp/temp/notify"
+  },
+  "Csv" : {
+    "interval": 10,
+    "file": "/tmp/temp/data/MF14/temp.csv"
+  },
+  "Sensors": [
+    {
+      "name": "temp1",
+      "file": "/tmp/sys/class/hwmon/hwmon0/device/temp1_input"
+    },
+    {
+      "name": "temp2",
+      "file": "/tmp/sys/class/hwmon/hwmon1/device/temp1_input"
+    }
+  ]
+}
