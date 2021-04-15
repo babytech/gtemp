@@ -30,6 +30,7 @@ type CsvConfig struct {
 type SensorConfig struct {
 	Name string
 	File string
+	value int
 	dummyTemp int
 	dummyTempIncrement int
 	Cache [32]uint32

@@ -12,16 +12,79 @@ import (
 	"os"
 )
 
-func httpserver(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	tag := params["tag"]
-	session := params["session"]
+func drawLineDaily(w http.ResponseWriter, r *csv.Reader) {
+	line := charts.NewLine()
+	line.SetGlobalOptions(
+		charts.WithTooltipOpts(opts.Tooltip{Show: true}),
+		charts.WithLegendOpts(opts.Legend{Show: true,
+			Right: "10%",
+		}),
+		charts.WithInitializationOpts(opts.Initialization{
+			Theme:  types.ThemeWesteros,
+			Width:  "2400px",
+			Height: "600px",
+		}),
+		charts.WithDataZoomOpts(opts.DataZoom{
+			Start:      0,
+			End:        100,
+			XAxisIndex: []int{0},
+		}),
+		charts.WithTitleOpts(opts.Title{
+			Title: "Temperature daily",
+		}),
+		charts.WithYAxisOpts(opts.YAxis{
+			Name: "Degree Celsius",
+			SplitLine: &opts.SplitLine{
+				Show: false,
+			},
+		}),
+		charts.WithXAxisOpts(opts.XAxis{
+			Name: "Time Slot",
+		}),
+	)
+	time := make([]string, 0)
+	temp := make(map[string]([]opts.LineData))
+	name, err := r.Read()
+	if err != nil && err != io.EOF {
+		http.Error(w, "File read failed.", 404)
+		fmt.Println("r.Read() Error:", err)
+	}
+	if err == io.EOF {
+		fmt.Println("r.Read() Error:", err)
+	}
 
-	fmt.Printf("#####tag:%s, session:%s\n", tag, session)
-	fmt.Println("======dir:", "data/"+tag+"/"+session)
-	inputFile := fmt.Sprintf("/tmp/temp/data/%v/%v.csv", tag, session)
-	fmt.Println("inputFile:", inputFile)
+	for {
+		row, err := r.Read()
+		if err != nil && err != io.EOF {
+			http.Error(w, "File read failed.", 404)
+			fmt.Println("r.Read() Error:", err)
+		}
+		if err == io.EOF {
+			break
+		}
+		fmt.Println("row: ",row)
+		time = append(time,row[0])
+		for i:=1; i<len(row); i++ {
+			temp[name[i]] = append(temp[name[i]],opts.LineData{Value: row[i]})
+		}
+	}
 
+	line.SetXAxis(time).
+	SetSeriesOptions(charts.WithLineChartOpts(
+		opts.LineChart{
+			Smooth: true,
+		}),
+	)
+	for k, v := range temp {
+		if k != "time" {
+			line.AddSeries(k, v)
+			fmt.Println("=============k", k, "v", v)
+		}
+	}
+	_ = line.Render(w)
+}
+
+func drawBar(w http.ResponseWriter, r *csv.Reader) {
 	bar := charts.NewBar()
 	bar.SetGlobalOptions(
 		charts.WithTooltipOpts(opts.Tooltip{Show: true}),
@@ -43,24 +106,12 @@ func httpserver(w http.ResponseWriter, r *http.Request) {
 			Subtitle: "MF14 ISR2103.46",
 			Left:     "10%",
 		}))
-
-	fs, err := os.Open(inputFile)
-	if err != nil {
-		//log.Fatalf("can not open the file, err is %+v", err)
-		http.Error(w, "File not found.", 404)
-		return
-	}
-	defer fs.Close()
-	rr := csv.NewReader(fs)
 	rowLine := 0
-	rr.FieldsPerRecord = -1
 	for {
-		row, err := rr.Read()
+		row, err := r.Read()
 		if err != nil && err != io.EOF {
-			//log.Fatalf("can not read, err is %+v", err)
 			http.Error(w, "File read failed.", 404)
 			fmt.Println("r.Read() Error:", err)
-			//return
 		}
 		if err == io.EOF {
 			break
@@ -71,7 +122,6 @@ func httpserver(w http.ResponseWriter, r *http.Request) {
 			for i := 1; i <= 30; i++ {
 				items = append(items, opts.BarData{Value: row[i]})
 			}
-			//fmt.Println("=================items: ",items)
 			bar.AddSeries(row[0], items)
 		} else {
 			bar.SetXAxis([]string{"<-40", "-40~-35", "-35~-30", "-30~-25", "-25~-20", "-20~-15", "-15~-10", "-10~-5",
@@ -80,18 +130,115 @@ func httpserver(w http.ResponseWriter, r *http.Request) {
 		}
 		rowLine++
 	}
-
 	_ = bar.Render(w)
-
 }
 
-func chartMainBody() {
+func drawLine(w http.ResponseWriter, r *csv.Reader) {
+	line := charts.NewLine()
+	line.SetGlobalOptions(
+		charts.WithTooltipOpts(opts.Tooltip{Show: true}),
+		charts.WithLegendOpts(opts.Legend{Show: true,
+			Right: "10%",
+		}),
+		charts.WithInitializationOpts(opts.Initialization{
+			Theme:  types.ThemeWesteros,
+			Width:  "1600px",
+			Height: "500px",
+		}),
+		charts.WithDataZoomOpts(opts.DataZoom{
+			Start:      0,
+			End:        100,
+			XAxisIndex: []int{0},
+		}),
+		charts.WithTitleOpts(opts.Title{
+			Title:    "temp sensor statistics",
+			Subtitle: "MF14 ISR2103.46",
+			Left:     "10%",
+		}))
+	rowLine := 0
+	for {
+		row, err := r.Read()
+		if err != nil && err != io.EOF {
+			http.Error(w, "File read failed.", 404)
+			fmt.Println("r.Read() Error:", err)
+		}
+		if err == io.EOF {
+			break
+		}
+		fmt.Println("row: ",row)
+		if rowLine != 0 {
+			items := make([]opts.LineData, 0)
+			for i := 1; i <= 30; i++ {
+				items = append(items, opts.LineData{Value: row[i]})
+			}
+			line.AddSeries(row[0], items)
+		} else {
+			line.SetXAxis([]string{"<-40", "-40~-35", "-35~-30", "-30~-25", "-25~-20", "-20~-15", "-15~-10", "-10~-5",
+				"-5~0", "0~5", "5~10", "10~15", "15~20", "20~25", "25~30", "30~35", "35~40", "40~45", "45~50",
+				"50~55", "55~60", "60~65", "65~70", "70~75", "75~80", "80~85", "85~90","90~95", "95~100", ">100"})
+		}
+		rowLine++
+	}
+	_ = line.Render(w)
+}
+
+func statisticsChart(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	tag := params["tag"]
+	session := params["session"]
+	fmt.Printf("#####tag:%s, session:%s\n", tag, session)
+	fmt.Println("======dir:", "data/"+tag+"/"+session)
+	inputFile := fmt.Sprintf("/tmp/temp/data/%v/%v.csv", tag, session)
+	fmt.Println("inputFile:", inputFile)
+
+	fs, err := os.Open(inputFile)
+	if err != nil {
+		http.Error(w, "File not found.", 404)
+		return
+	}
+	defer fs.Close()
+	rr := csv.NewReader(fs)
+	rr.FieldsPerRecord = -1
+
+	switch m {
+	case "bar":
+		drawBar(w, rr)
+	case "line":
+		drawLine(w, rr)
+	default:
+		drawBar(w, rr)
+	}
+}
+
+func dailyChart(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	tag := params["tag"]
+	session := params["session"]
+	fmt.Printf("#####tag:%s, session:%s\n", tag, session)
+	fmt.Println("======dir:", "data/"+tag+"/"+session)
+	inputFile := fmt.Sprintf("/tmp/temp/data/%v/%v.csv", tag, session)
+	fmt.Println("inputFile:", inputFile)
+
+	fs, err := os.Open(inputFile)
+	if err != nil {
+		http.Error(w, "File not found.", 404)
+		return
+	}
+	defer fs.Close()
+	rr := csv.NewReader(fs)
+	rr.FieldsPerRecord = -1
+
+	drawLineDaily(w, rr)
+}
+
+func chartHttpServer() {
 	router := mux.NewRouter().StrictSlash(false)
-	router.HandleFunc("/", httpserver)
-	router.HandleFunc("/{tag}/{session}", httpserver)
+	router.HandleFunc("/", statisticsChart)
+	router.HandleFunc("/{tag}/{session}/statics", statisticsChart)
+	router.HandleFunc("/{tag}/{session}/daily", dailyChart)
 	_ = http.ListenAndServe(":4321", router)
 }
 
 func ChartMain() {
-	go chartMainBody()
+	go chartHttpServer()
 }

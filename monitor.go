@@ -13,6 +13,10 @@ import (
 const ByteLengthPerTemp = 128
 const ByteLengthPerCount = 4
 
+func (g *TempSensorConfig) updateCurrentTempValue(temp int, index int) {
+	g.Sensors[index].value = temp
+}
+
 func (g *TempSensorConfig) updateDataCache(currentTemp int, index int) {
 	if currentTemp < g.Sampling.Low {
 		currentTemp = g.Sampling.Low - g.Sampling.Step
@@ -51,13 +55,11 @@ func (g *TempSensorConfig) ReadDataFromPersistence() error {
 		return err
 	}
 	g.RawData = append(g.RawData, []byte(content)...)
-	//fmt.Println("g.RawData [begin]:", g.RawData)
 	for index := 0; index < len(g.Sensors); index++ {
 		// get each 128 bytes from v.RawData
 		lowRange := index * ByteLengthPerTemp
 		highRange := (index+1) * ByteLengthPerTemp - 1
 		rawBuffer := g.RawData[lowRange:highRange]
-		//fmt.Println("rawBuffer", rawBuffer)
 		// covert 128 bytes to 32 int and write to v.Sensors[index].Cache[j]
 		for k :=0; k < 32; k++ {
 			lowPerRange := k * ByteLengthPerCount
@@ -65,7 +67,6 @@ func (g *TempSensorConfig) ReadDataFromPersistence() error {
 			g.Sensors[index].Cache[k] = BytesToInt(rawBuffer[lowPerRange:highPerRange])
 		}
 	}
-	//fmt.Println("g.RawData [end]:", g.RawData)
 	return nil
 }
 
@@ -86,8 +87,8 @@ func (g *TempSensorConfig) MonitorBody(index int) {
 			str := strings.Replace(s, "\n", "", -1)
 			curTemp, _ := strconv.Atoi(str)
 			curTemp = curTemp/1000
-			//update counters in data cache
 			fmt.Println("curTemp = ", curTemp)
+			g.updateCurrentTempValue(curTemp, index)
 			g.updateDataCache(curTemp, index)
 			time.Sleep(time.Second * time.Duration(g.Sampling.Interval))
 		}
@@ -166,13 +167,11 @@ func StartMonitorTask() {
 	}
 
 	// Initial read data from eeprom file
-	//fmt.Println("[BEFORE] g.RawData: ", tempSensor.RawData)
 	err = tempSensor.ReadDataFromPersistence()
 	if err != nil {
 		fmt.Println("ReadDataFromPersistence: Fail!")
 		os.Exit(1)
 	}
-	//fmt.Println("[AFTER]  g.RawData: ", tempSensor.RawData)
 
 	// Generate dummy temperature and write to per sensor file
 	if d {

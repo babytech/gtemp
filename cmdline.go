@@ -20,10 +20,11 @@ var (
 	j string
 	c string
 	n string
+	m string
 	e uint
 )
 
-const VersionOfThisProgram = "0.0.5"
+const VersionOfThisProgram = "0.0.6"
 const AuthorInformation = "Babytech"
 
 func showVersion() {
@@ -33,14 +34,14 @@ func showVersion() {
 func usage() {
 	_, _ = fmt.Fprintf(os.Stderr, `gtemp version: gtemp %s
 Author: %s
-Usage: gtemp [-hvVtTrwd] [-s signal] [-p prefix] [-j json_file] [-c csv_file] [-n notify_file] [-e size] 
+Usage: gtemp [-hvVtTrwd] [-s signal] [-p prefix] [-j json_file] [-c csv_file] [-n notify_file][-m chart_mode <bar/line] [-e size]
 Options:
 `, VersionOfThisProgram, AuthorInformation)
 	flag.PrintDefaults()
 }
 
 func InitCmdLine() {
-	flag.BoolVar(&h, "h", false, "this help")
+	flag.BoolVar(&h, "h", true, "this help")
 	flag.BoolVar(&v, "v", false, "show version and exit")
 	flag.BoolVar(&V, "V", false, "show version and configure options then exit")
 	flag.BoolVar(&t, "t", false, "test JSON configuration and exit")
@@ -54,6 +55,7 @@ func InitCmdLine() {
 	flag.StringVar(&j, "j", "temp/config.json", "set configuration 'input_file` -> json format")
 	flag.StringVar(&c, "c", "temp/data/gTemp.csv", "set configuration 'output_file` -> csv format")
 	flag.StringVar(&n, "n", "temp/notify.txt", "set notify file to flush data cache to persistent storage <eeprom>")
+	flag.StringVar(&m, "m", "bar", "set mode for show chart from the output of csv file")
 	flag.UintVar(&e, "e", 128*16, "set the raw data size 'n bytes' of persistent storage <eeprom>")
 	// Override default usage function
 	flag.Usage = usage
