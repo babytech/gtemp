@@ -26,23 +26,27 @@ func TestUnitTestReadCsv(t *testing.T) {
 func TestTempSensorConfig_HandleCsvFile(t *testing.T) {
 	fileName := "/tmp/temp/test.csv"
 	tempSensor := NewTempSensor()
-	r = true
+	err := tempSensor.ParseJsonFile("/tmp/temp/config.json")
+	if err != nil {
+		t.Error("Test Configure File: Fail!")
+	}
+	readCsvFile = true
 	result := tempSensor.HandleCsvFile(fileName)
 	if result == 1 {
 		t.Log("Read CSV file OK")
 	} else {
 		t.Error("Read CSV file fail")
 	}
-	r = false
-	w = true
+	readCsvFile = false
+	writeCsvFile = true
 	result = tempSensor.HandleCsvFile(fileName)
 	if result == 2 {
 		t.Log("Write CSV file OK")
 	} else {
 		t.Error("Write CSV file fail")
 	}
-	r = false
-	w = false
+	readCsvFile = false
+	writeCsvFile = false
 	result = tempSensor.HandleCsvFile(fileName)
 	if result == 0 {
 		t.Log("Generate CSV file OK")

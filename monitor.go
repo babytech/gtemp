@@ -60,7 +60,7 @@ func (g *TempSensorConfig) ReadDataFromPersistence() error {
 		lowRange := index * ByteLengthPerTemp
 		highRange := (index+1) * ByteLengthPerTemp - 1
 		rawBuffer := g.RawData[lowRange:highRange]
-		// covert 128 bytes to 32 int and write to v.Sensors[index].Cache[j]
+		// covert 128 bytes to 32 int and write to cache of each sensor
 		for k :=0; k < 32; k++ {
 			lowPerRange := k * ByteLengthPerCount
 			highPerRange := (k + 1) * ByteLengthPerCount
@@ -137,28 +137,28 @@ func (g *TempSensorConfig) createDummyTemp() {
 	g.Sensors[1].dummyTempIncrement = 2000
 	go g.doCreateDummyTemp(0)
 	go g.doCreateDummyTemp(1)
+	fmt.Println("create dummy temperature for sensors...")
 }
 
 func StartMonitorTask() {
-	ConfigFileForTempMonitor := p+j
+	fmt.Printf("===> gtemp [%s]: Start Monitoring Task for capture temperature...\n", VersionOfThisProgram)
+	ConfigFileForTempMonitor := prefix + jsonFile
 	fmt.Println("Configuration File :", ConfigFileForTempMonitor)
-	fmt.Printf("size of eeprom : 0x%x\n", e)
+	fmt.Printf("size of eeprom : 0x%x\n", eepromSize)
 	tempSensor := NewTempSensor()
 	err := tempSensor.ParseJsonFile(ConfigFileForTempMonitor)
 	if err != nil {
 		fmt.Printf("Test Configure File: %s Fail!\n", ConfigFileForTempMonitor)
 		os.Exit(1)
-	} else if t {
+	} else if testJsonFile {
 		fmt.Printf("Test Configure File: %s OK!\n", ConfigFileForTempMonitor)
 		os.Exit(0)
-	} else if T {
+	} else if TestJsonFile {
 		fmt.Printf("Test Configure File: %s OK!\n", ConfigFileForTempMonitor)
 		fmt.Println("Parse Configure File Data Result :")
 		fmt.Println(tempSensor.Sampling)
 		fmt.Println(tempSensor.Persistence)
-		fmt.Println(tempSensor.Sampling.Interval)
-		fmt.Println(tempSensor.Persistence.Interval)
-		fmt.Println(tempSensor.Persistence.File)
+		fmt.Println(tempSensor.Csv)
 		for index := 0; index < len(tempSensor.Sensors); index++ {
 			fmt.Println(tempSensor.Sensors[index].Name)
 			fmt.Println(tempSensor.Sensors[index].File)
@@ -174,7 +174,7 @@ func StartMonitorTask() {
 	}
 
 	// Generate dummy temperature and write to per sensor file
-	if d {
+	if dummyTemp {
 		tempSensor.createDummyTemp()
 	}
 
@@ -190,12 +190,12 @@ func StartMonitorTask() {
 	go tempSensor.SignalListen()
 
 	// Handle generate CSV file
-	result := tempSensor.HandleCsvFile(p+c)
+	result := tempSensor.HandleCsvFile(prefix + csvFile)
 	if result != 0 {
 		os.Exit(0)
 	}
 
 	// Before board reset using script to set /tmp/temp/notify.txt as 1,
 	// Register this notify to trigger write data to eeprom file
-	tempSensor.WatchFile(p+n, tempSensor.writeDataToPersistence)
+	tempSensor.WatchFile(prefix + notifyFile, tempSensor.writeDataToPersistence)
 }

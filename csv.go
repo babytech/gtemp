@@ -103,7 +103,7 @@ func UnitTestReadCsv(fileName string) {
 	}
 }
 
-func (g *TempSensorConfig) genCsvFile(file string) {
+func (g *TempSensorConfig) doGenCsvFile(file string) {
 	fileName := CheckFile(file)
 	f, err := os.Create(fileName)
 	if err != nil {
@@ -127,7 +127,6 @@ func (g *TempSensorConfig) genCsvFile(file string) {
 		data = append(data, row)
 		row = make([]string,0)
 	}
-	//fmt.Println("[][]:", data)
 	_ = w.WriteAll(data)
 	w.Flush()
 }
@@ -156,10 +155,11 @@ func createCsvDaily(file string) *os.File {
 	return f
 }
 
-func (g *TempSensorConfig) genCsvDaily() {
+func (g *TempSensorConfig) doGenCsvDaily(fileName string) {
 	const secondsPerDay = 24 * 60 * 60
+	fmt.Println("g.Csv.Interval:", g.Csv.Interval)
 	for {
-		f := createCsvDaily(g.Csv.File)
+		f := createCsvDaily(fileName)
 		w := csv.NewWriter(f)
 		var row []string
 		var title []string
@@ -172,11 +172,11 @@ func (g *TempSensorConfig) genCsvDaily() {
 		_ = w.Write(row)
 		w.Flush()
 		row = make([]string, 0)
-		for interval := 0; interval < (secondsPerDay / g.Csv.Interval); interval++ {
-			timeStr:=time.Now().Format("2006-01-02 15:04:05")
+		for interval := 0; interval < (secondsPerDay/g.Csv.Interval); interval++ {
+			timeStr := time.Now().Format("2006-01-02 15:04:05")
 			row = append(row, timeStr)
 			for index := 0; index < len(g.Sensors); index++ {
-				row = append(row, strconv.Itoa(int(g.Sensors[index].value)))
+				row = append(row, strconv.Itoa(g.Sensors[index].value))
 			}
 			fmt.Println("[]:", row)
 			_ = w.Write(row)
@@ -188,6 +188,25 @@ func (g *TempSensorConfig) genCsvDaily() {
 	}
 }
 
+func (g *TempSensorConfig) genCsvFile(fileName string) {
+	go func() {
+		for {
+			time.Sleep(time.Second * time.Duration(g.Csv.Interval))
+			g.doGenCsvFile(fileName)
+		}
+	}()
+}
+
+func (g *TempSensorConfig) genCsvDaily(fileName string) {
+	go g.doGenCsvDaily(fileName)
+}
+
+func (g *TempSensorConfig) genCsv(fileName string) int {
+	g.genCsvFile(fileName)
+	g.genCsvDaily(fileName)
+	return 0
+}
+
 func (g *TempSensorConfig) HandleCsvFile(fileName string) int {
 	file, err := os.Open(fileName)
 	if err != nil {
@@ -197,23 +216,14 @@ func (g *TempSensorConfig) HandleCsvFile(fileName string) int {
 	}
 	defer file.Close()
 	fmt.Println("Handle csv File :", fileName)
-	if r {
+	if readCsvFile {
 		fmt.Println("ReadCsv :", fileName)
 		readCsv(fileName)
 		return 1
-	} else if w {
+	} else if writeCsvFile {
 		fmt.Println("WriteCsv :", fileName)
 		writeCsv(fileName)
 		return 2
 	}
-	go func() {
-		for {
-			time.Sleep(time.Second * time.Duration(g.Csv.Interval))
-			g.genCsvFile(fileName)
-		}
-	}()
-	go func() {
-		g.genCsvDaily()
-	}()
-	return 0
+	return g.genCsv(fileName)
 }

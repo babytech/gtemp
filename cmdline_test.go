@@ -10,20 +10,20 @@ func TestInitCmdLine(t *testing.T) {
 }
 
 func TestParseCmdLine(t *testing.T) {
-	h = true
+	help = true
 	result := ParseCmdLine()
 	if result == -1 {
 		t.Log("Parse command line for help usage")
 	}
-	h = false
-	v = true
+	help = false
+	version = true
 	result = ParseCmdLine()
 	if result == -2 {
 		t.Log("Parse command line for help version")
 	}
-	h = false
-	v = false
-	V = true
+	help = false
+	version = false
+	Version = true
 	result = ParseCmdLine()
 	if result == -3 {
 		t.Log("Parse command line for print default")

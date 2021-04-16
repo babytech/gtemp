@@ -3,7 +3,7 @@ package main
 import "testing"
 
 func TestStartMonitorTask(t *testing.T) {
-	d = true
+	dummyTemp = true
 	StartMonitorTask()
 	t.Log("Start tempSensor monitor task OK")
 }

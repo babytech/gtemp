@@ -4,13 +4,86 @@ import (
 	"encoding/csv"
 	"fmt"
 	"github.com/go-echarts/go-echarts/v2/charts"
+	"github.com/go-echarts/go-echarts/v2/components"
 	"github.com/go-echarts/go-echarts/v2/opts"
 	"github.com/go-echarts/go-echarts/v2/types"
 	"github.com/gorilla/mux"
 	"io"
+	"math/rand"
 	"net/http"
 	"os"
 )
+
+func genLiquidItems(data []float32) []opts.LiquidData {
+	items := make([]opts.LiquidData, 0)
+	for i := 0; i < len(data); i++ {
+		items = append(items, opts.LiquidData{Value: data[i]})
+	}
+	return items
+}
+
+func drawLiquidPin(w http.ResponseWriter, r *csv.Reader) *charts.Liquid {
+	liquid := charts.NewLiquid()
+	liquid.SetGlobalOptions(
+		charts.WithTitleOpts(opts.Title{
+			Title: "温度传感器温度水位",
+		}),
+	)
+	liquid.AddSeries("liquid", genLiquidItems([]float32{0.3, 0.4, 0.5})).
+		SetSeriesOptions(
+			charts.WithLiquidChartOpts(opts.LiquidChart{
+				IsWaveAnimation: true,
+				Shape:           "pin",
+			}),
+		)
+	_ = liquid.Render(w)
+	return liquid
+}
+
+func drawGauge(w http.ResponseWriter, r *csv.Reader) *charts.Gauge {
+	gauge := charts.NewGauge()
+	gauge.SetGlobalOptions(
+		charts.WithTitleOpts(opts.Title{Title: "温度传感器温度值"}),
+	)
+	gauge.AddSeries("ProjectA", []opts.GaugeData{{Name: "#1号温感当前温度", Value: 500}})
+	_ = gauge.Render(w)
+	return gauge
+}
+
+var (
+	itemCntPie = 4
+	seasons    = []string{"Spring", "Summer", "Autumn ", "Winter"}
+)
+
+func generatePieItems() []opts.PieData {
+	items := make([]opts.PieData, 0)
+	for i := 0; i < itemCntPie; i++ {
+		items = append(items, opts.PieData{Name: seasons[i], Value: rand.Intn(100)})
+	}
+	return items
+}
+
+func drawPieRoseRadius(w http.ResponseWriter, r *csv.Reader) *charts.Pie {
+	pie := charts.NewPie()
+	pie.SetGlobalOptions(
+		charts.WithTitleOpts(opts.Title{
+			Title: "Rose(Radius)",
+		}),
+	)
+	pie.AddSeries("pie", generatePieItems()).
+		SetSeriesOptions(
+			charts.WithLabelOpts(opts.Label{
+				Show:      true,
+				Formatter: "{b}: {c}",
+			}),
+			charts.WithPieChartOpts(opts.PieChart{
+				Radius:   []string{"30%", "75%"},
+				RoseType: "radius",
+			}),
+		)
+	_ = pie.Render(w)
+	return pie
+}
 
 func drawLineDaily(w http.ResponseWriter, r *csv.Reader) {
 	line := charts.NewLine()
@@ -52,7 +125,6 @@ func drawLineDaily(w http.ResponseWriter, r *csv.Reader) {
 	if err == io.EOF {
 		fmt.Println("r.Read() Error:", err)
 	}
-
 	for {
 		row, err := r.Read()
 		if err != nil && err != io.EOF {
@@ -68,7 +140,6 @@ func drawLineDaily(w http.ResponseWriter, r *csv.Reader) {
 			temp[name[i]] = append(temp[name[i]],opts.LineData{Value: row[i]})
 		}
 	}
-
 	line.SetXAxis(time).
 	SetSeriesOptions(charts.WithLineChartOpts(
 		opts.LineChart{
@@ -182,7 +253,7 @@ func drawLine(w http.ResponseWriter, r *csv.Reader) {
 	_ = line.Render(w)
 }
 
-func statisticsChart(w http.ResponseWriter, r *http.Request) {
+func drawChart(w http.ResponseWriter, r *http.Request) (*csv.Reader, *os.File) {
 	params := mux.Vars(r)
 	tag := params["tag"]
 	session := params["session"]
@@ -190,17 +261,19 @@ func statisticsChart(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("======dir:", "data/"+tag+"/"+session)
 	inputFile := fmt.Sprintf("/tmp/temp/data/%v/%v.csv", tag, session)
 	fmt.Println("inputFile:", inputFile)
-
 	fs, err := os.Open(inputFile)
 	if err != nil {
 		http.Error(w, "File not found.", 404)
-		return
+		return nil, nil
 	}
-	defer fs.Close()
 	rr := csv.NewReader(fs)
 	rr.FieldsPerRecord = -1
+	return rr, fs
+}
 
-	switch m {
+func statisticsChart(w http.ResponseWriter, r *http.Request) {
+	rr, fs := drawChart(w, r)
+	switch chartMode {
 	case "bar":
 		drawBar(w, rr)
 	case "line":
@@ -208,27 +281,31 @@ func statisticsChart(w http.ResponseWriter, r *http.Request) {
 	default:
 		drawBar(w, rr)
 	}
+	defer fs.Close()
 }
 
 func dailyChart(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	tag := params["tag"]
-	session := params["session"]
-	fmt.Printf("#####tag:%s, session:%s\n", tag, session)
-	fmt.Println("======dir:", "data/"+tag+"/"+session)
-	inputFile := fmt.Sprintf("/tmp/temp/data/%v/%v.csv", tag, session)
-	fmt.Println("inputFile:", inputFile)
-
-	fs, err := os.Open(inputFile)
-	if err != nil {
-		http.Error(w, "File not found.", 404)
-		return
-	}
-	defer fs.Close()
-	rr := csv.NewReader(fs)
-	rr.FieldsPerRecord = -1
-
+	rr, fs := drawChart(w, r)
 	drawLineDaily(w, rr)
+	defer fs.Close()
+}
+
+func genPages(w http.ResponseWriter, r *csv.Reader) *components.Page {
+	page := components.NewPage()
+	page.AddCharts(
+		drawLiquidPin(w, r),
+		drawGauge(w, r),
+		drawPieRoseRadius(w, r),
+	)
+	return page
+}
+
+func statusChart(w http.ResponseWriter, r *http.Request) {
+	rr, fs := drawChart(w, r)
+	page := genPages(w, rr)
+	page.SetLayout(components.PageFlexLayout)
+	page.Render(io.MultiWriter(fs))
+	defer fs.Close()
 }
 
 func chartHttpServer() {
@@ -236,6 +313,7 @@ func chartHttpServer() {
 	router.HandleFunc("/", statisticsChart)
 	router.HandleFunc("/{tag}/{session}/statics", statisticsChart)
 	router.HandleFunc("/{tag}/{session}/daily", dailyChart)
+	router.HandleFunc("/{tag}/{session}/status", statusChart)
 	_ = http.ListenAndServe(":4321", router)
 }
 

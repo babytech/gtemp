@@ -29,7 +29,6 @@ func WriteFile(filename string, data []byte) {
 }
 
 func CheckFile(fileName string) string {
-	//fmt.Println("Checking file: ", fileName)
 	dir := filepath.Dir(fileName)
 	base := filepath.Base(fileName)
 	// check

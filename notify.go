@@ -12,8 +12,8 @@ type Callback func()
 func (g *TempSensorConfig) WatchFile(fileName string, funcCb Callback) {
 	file, err := os.Open(fileName)
 	if err != nil {
-		fmt.Println("FileName is empty from cmdline. Error: ", err)
-		fmt.Println("FileName is fetching from Json file: ", g.Notify.File)
+		fmt.Println("Watch file is empty from cmdline. Error: ", err)
+		fmt.Println("Watch file is fetching from Json file: ", g.Notify.File)
 		fileName = g.Notify.File
 	}
 	defer file.Close()
@@ -28,7 +28,9 @@ func (g *TempSensorConfig) WatchFile(fileName string, funcCb Callback) {
 		fmt.Println("NewWatcher fail!")
 		log.Fatal(err)
 	}
-	defer watch.Close()
+	defer func(watch *fsnotify.Watcher) {
+		_ = watch.Close()
+	}(watch)
 	err = watch.Add(watcher)
 	if err != nil {
 		fmt.Println("Watch.Add fail! fileName: ", fileName)

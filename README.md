@@ -7,7 +7,7 @@ Monitor the thermal and temperature history of your device
 
 - Version:
   -
-  **0.0.6**
+  **0.0.7**
 
 - Requirements
   -
@@ -32,25 +32,33 @@ Monitor the thermal and temperature history of your device
 - Usage
   -
 
-Usage: gtemp [-hvVtTrwd] [-s signal] [-p prefix] [-j json_file] [-c csv_file] [-n notify_file][-m chart_mode <bar/line] [-e size]
+gtemp [-hvVtTrwd] [-s signal] [-p prefix] [-j json_file] [-c csv_file] [-n notify_file][-m chart_mode <bar/line>] [-e size]
 
 Options:
 
--T    test JSON configuration, dump it and exit
+-T
 
--V    show version and configure options then exit
+test JSON configuration, dump it and exit
+
+-V
+
+show version and configure options then exit
 
 -c string
 
 set configuration 'output_file` -> csv format (default "temp/data/gTemp.csv")
 
--d    write dummy temperature into sensor file period
+-d
+
+write dummy temperature into sensor file period
 
 -e uint
 
 set the raw data size 'n bytes' of persistent storage <eeprom> (default 2048)
 
--h    this help (default true)
+-h
+
+this help (default true)
 
 -j string
 
@@ -68,17 +76,26 @@ set notify file to flush data cache to persistent storage <eeprom> (default "tem
 
 set prefix path (default "/tmp/")
 
--r    read CSV file and exit
+-r
+
+read CSV file and exit
+
+-w
+
+write CSV file and exit
 
 -s signal
 
 send signal to a master process: stop, quit, reopen, reload
 
--t    test JSON configuration and exit
+-t
 
--v    show version and exit
+test JSON configuration and exit
 
--w    write CSV file and exit
+-v
+
+show version and exit
+
 
 - History
   -
@@ -93,4 +110,6 @@ send signal to a master process: stop, quit, reopen, reload
   0.0.5 --- add test suite to support unit test
 
   0.0.6 --- provide to generate temperature daily and overall statics
+
+  0.0.7 --- provide to show current temperature of each sensor
 

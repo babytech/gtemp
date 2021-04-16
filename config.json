@@ -14,7 +14,7 @@
   },
   "Csv" : {
     "interval": 10,
-    "file": "/tmp/temp/data/MF14/temp.csv"
+    "file": "/tmp/temp/data/temp.csv"
   },
   "Sensors": [
     {
