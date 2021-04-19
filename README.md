@@ -29,6 +29,10 @@ Monitor the thermal and temperature history of your device
   - This is the standalone application written by golang
   - It provides some functions for temperature statistics from different temperature sensors
 
+- Diagram:
+  -
+![](images/gtemp.png)
+
 - Usage
   -
 
