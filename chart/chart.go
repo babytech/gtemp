@@ -206,7 +206,7 @@ func drawBar(w http.ResponseWriter, r *csv.Reader) {
 				charts.WithMarkPointNameTypeItemOpts(
 					opts.MarkPointNameTypeItem{Name: "Maximum", Type: "max"},
 					//opts.MarkPointNameTypeItem{Name: "Average", Type: "average"},
-					opts.MarkPointNameTypeItem{Name: "Minimum", Type: "min"},
+					//opts.MarkPointNameTypeItem{Name: "Minimum", Type: "min"},
 				),
 				charts.WithMarkPointStyleOpts(
 					opts.MarkPointStyle{Label: &opts.Label{Show: true}},

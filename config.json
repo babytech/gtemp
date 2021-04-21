@@ -15,7 +15,7 @@
   "Csv" : {
     "interval": 10,
     "file": "/tmp/temp/data/MF14/temp.csv",
-    "ip": "127.0.0.1",
+    "ip": "10.182.105.138",
     "port": "4321"
   },
   "Sensors": [
@@ -26,6 +26,30 @@
     {
       "name": "temp2",
       "file": "/tmp/sys/class/hwmon/hwmon1/device/temp1_input"
+    },
+    {
+      "name": "temp3",
+      "file": "/tmp/sys/class/hwmon/hwmon2/device/temp1_input"
+    },
+    {
+      "name": "temp4",
+      "file": "/tmp/sys/class/hwmon/hwmon3/device/temp1_input"
+    },
+    {
+      "name": "temp5",
+      "file": "/tmp/sys/class/hwmon/hwmon4/device/temp1_input"
+    },
+    {
+      "name": "temp6",
+      "file": "/tmp/sys/class/hwmon/hwmon5/device/temp1_input"
+    },
+    {
+      "name": "temp7",
+      "file": "/tmp/sys/class/hwmon/hwmon6/device/temp1_input"
+    },
+    {
+      "name": "temp8",
+      "file": "/tmp/sys/class/hwmon/hwmon7/device/temp1_input"
     }
   ]
 }

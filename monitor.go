@@ -55,9 +55,14 @@ func (g *TempSensorConfig) ReadDataFromPersistence() error {
 		return err
 	}
 	g.RawData = append(g.RawData, []byte(content)...)
-	reserveRawData := make([]byte, ByteLengthPerTemp*len(g.Sensors)-len(g.RawData))
-	g.RawData = append(g.RawData, reserveRawData...)
-	fmt.Println("ReadDataFromPersistence()->len(g.RawData) = ", len(g.RawData))
+	fmt.Println("ReadDataFromPersistence() -> len(g.RawData) = ",len(g.RawData))
+	if len(g.RawData) < ByteLengthPerTemp*len(g.Sensors) {
+		reserveRawLength := ByteLengthPerTemp*len(g.Sensors)-len(g.RawData)
+		reserveRawData := make([]byte, reserveRawLength)
+		g.RawData = append(g.RawData, reserveRawData...)
+		fmt.Println("len(g.RawData) < ByteLengthPerTemp*len(g.Sensors) -> len(g.RawData) = ",len(g.RawData))
+	}
+	fmt.Println("ReadDataFromPersistence() -> ByteLengthPerTemp*len(g.Sensors) = ",  ByteLengthPerTemp*len(g.Sensors))
 	for index := 0; index < len(g.Sensors); index++ {
 		// get each 128 bytes from v.RawData
 		lowRange := index * ByteLengthPerTemp
