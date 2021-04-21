@@ -7,7 +7,7 @@ Monitor the thermal and temperature history of your device
 
 - Version:
   -
-  **0.0.7**
+  **0.0.8**
 
 - Requirements
   -
@@ -116,4 +116,6 @@ show version and exit
   0.0.6 --- provide to generate temperature daily and overall statics
 
   0.0.7 --- provide to show current temperature of each sensor
+
+  0.0.8 --- support upload csv file to external server
 

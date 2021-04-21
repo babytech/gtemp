@@ -6,7 +6,7 @@ import (
 )
 
 func watchCallback() {
-	rawData := make ([]byte, 0)
+	rawData := make([]byte, 0)
 	rawData = append(rawData, []byte("Hello world")...)
 
 	WriteFile("/tmp/temp/persistent", rawData)

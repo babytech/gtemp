@@ -7,24 +7,24 @@ import (
 )
 
 var (
-	help bool
-	version bool
-	Version bool
+	help         bool
+	version      bool
+	Version      bool
 	testJsonFile bool
 	TestJsonFile bool
-	readCsvFile bool
+	readCsvFile  bool
 	writeCsvFile bool
-	dummyTemp bool
-	sendSignal string
-	prefix string
-	jsonFile string
-	csvFile string
-	notifyFile string
-	chartMode string
-	eepromSize uint
+	dummyTemp    bool
+	sendSignal   string
+	prefix       string
+	jsonFile     string
+	csvFile      string
+	notifyFile   string
+	chartMode    string
+	eepromSize   uint
 )
 
-const VersionOfThisProgram = "0.0.7"
+const VersionOfThisProgram = "0.0.8"
 const AuthorInformation = "Babytech"
 
 func showVersion() {

@@ -35,17 +35,17 @@ func (g *TempSensorConfig) updateDataCache(currentTemp int, index int) {
 func (g *TempSensorConfig) writeDataToPersistence() {
 	fmt.Println("Flushing data cache into persistence storage...")
 	//merge all sensors cache together
-	g.RawData = make ([]byte, 0)
+	g.RawData = make([]byte, 0)
 	for index := 0; index < len(g.Sensors); index++ {
 		out := []byte(g.Sensors[index].Name)
 		g.RawData = append(g.RawData, out[0:8]...)
-		for k :=2; k < 32; k++ {
+		for k := 2; k < 32; k++ {
 			g.RawData = append(g.RawData, IntToBytes(g.Sensors[index].Cache[k])...)
 		}
 		out = make([]byte, 0)
 	}
-	fmt.Println("len(g.RawData): ",len(g.RawData))
-	fmt.Println("g.RawData:",g.RawData)
+	fmt.Println("writeDataToPersistence()->len(g.RawData): ", len(g.RawData))
+	fmt.Println("g.RawData:", g.RawData)
 	WriteFile(g.Persistence.File, g.RawData)
 }
 
@@ -55,13 +55,16 @@ func (g *TempSensorConfig) ReadDataFromPersistence() error {
 		return err
 	}
 	g.RawData = append(g.RawData, []byte(content)...)
+	reserveRawData := make([]byte, ByteLengthPerTemp*len(g.Sensors)-len(g.RawData))
+	g.RawData = append(g.RawData, reserveRawData...)
+	fmt.Println("ReadDataFromPersistence()->len(g.RawData) = ", len(g.RawData))
 	for index := 0; index < len(g.Sensors); index++ {
 		// get each 128 bytes from v.RawData
 		lowRange := index * ByteLengthPerTemp
-		highRange := (index+1) * ByteLengthPerTemp - 1
+		highRange := (index+1)*ByteLengthPerTemp - 1
 		rawBuffer := g.RawData[lowRange:highRange]
 		// covert 128 bytes to 32 int and write to cache of each sensor
-		for k :=0; k < 32; k++ {
+		for k := 0; k < 32; k++ {
 			lowPerRange := k * ByteLengthPerCount
 			highPerRange := (k + 1) * ByteLengthPerCount
 			g.Sensors[index].Cache[k] = BytesToInt(rawBuffer[lowPerRange:highPerRange])
@@ -73,7 +76,7 @@ func (g *TempSensorConfig) ReadDataFromPersistence() error {
 func (g *TempSensorConfig) MonitorBody(index int) {
 	//start go routine
 	go func() {
-		fmt.Printf("Start Read TempSensor: %s\nTempSensor path: %s \n",
+		fmt.Printf("\nStart Read TempSensor: %s\nTempSensor path: %s \n",
 			g.Sensors[index].Name, g.Sensors[index].File)
 		for {
 			//read sensors value from sysfs
@@ -86,7 +89,7 @@ func (g *TempSensorConfig) MonitorBody(index int) {
 			}
 			str := strings.Replace(s, "\n", "", -1)
 			curTemp, _ := strconv.Atoi(str)
-			curTemp = curTemp/1000
+			curTemp = curTemp / 1000
 			fmt.Println("curTemp = ", curTemp)
 			g.updateCurrentTempValue(curTemp, index)
 			g.updateDataCache(curTemp, index)
@@ -122,7 +125,7 @@ func (g *TempSensorConfig) SignalListen() {
 
 func (g *TempSensorConfig) doCreateDummyTemp(index int) {
 	for {
-		for item := 0; item < (g.Sampling.High-g.Sampling.Low) * 1000/g.Sensors[index].dummyTempIncrement; item++ {
+		for item := 0; item < (g.Sampling.High-g.Sampling.Low)*1000/g.Sensors[index].dummyTempIncrement; item++ {
 			WriteFile(g.Sensors[index].File, []byte(strconv.Itoa(g.Sensors[index].dummyTemp)))
 			g.Sensors[index].dummyTemp = g.Sensors[index].dummyTemp + g.Sensors[index].dummyTempIncrement
 			time.Sleep(time.Second * time.Duration(3))
@@ -141,7 +144,7 @@ func (g *TempSensorConfig) createDummyTemp() {
 }
 
 func StartMonitorTask() {
-	fmt.Printf("===> gtemp [%s]: Start Monitoring Task for capture temperature...\n", VersionOfThisProgram)
+	fmt.Printf("\n===> gtemp [%s]: Start Monitoring Task for capture temperature...\n", VersionOfThisProgram)
 	ConfigFileForTempMonitor := prefix + jsonFile
 	fmt.Println("Configuration File :", ConfigFileForTempMonitor)
 	fmt.Printf("size of eeprom : 0x%x\n", eepromSize)
@@ -197,5 +200,5 @@ func StartMonitorTask() {
 
 	// Before board reset using script to set /tmp/temp/notify.txt as 1,
 	// Register this notify to trigger write data to eeprom file
-	tempSensor.WatchFile(prefix + notifyFile, tempSensor.writeDataToPersistence)
+	tempSensor.WatchFile(prefix+notifyFile, tempSensor.writeDataToPersistence)
 }

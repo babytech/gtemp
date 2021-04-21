@@ -79,7 +79,7 @@ func exportCsv(filePath string, data [][]string) {
 
 func UnitTestWriteCsv(fileName string) {
 	columns := [][]string{{"Name", "Phone", "Company", "Job", "Join-time"}, {"1", "2", "Baby,Baby,Baby", "4", "5"}}
-	exportCsv(fileName,columns)
+	exportCsv(fileName, columns)
 }
 
 func UnitTestReadCsv(fileName string) {
@@ -103,7 +103,7 @@ func UnitTestReadCsv(fileName string) {
 	}
 }
 
-func (g *TempSensorConfig) doGenCsvFile(file string) {
+func (g *TempSensorConfig) doGenCsvStatics(file string) {
 	fileName := CheckFile(file)
 	f, err := os.Create(fileName)
 	if err != nil {
@@ -125,15 +125,15 @@ func (g *TempSensorConfig) doGenCsvFile(file string) {
 			row = append(row, strconv.Itoa(int(g.Sensors[index].Cache[k])))
 		}
 		data = append(data, row)
-		row = make([]string,0)
+		row = make([]string, 0)
 	}
 	_ = w.WriteAll(data)
 	w.Flush()
 }
 
-func createCsvDaily(file string) *os.File {
+func createCsvDaily(file string) (*os.File, string) {
 	dir := filepath.Dir(file)
-	date :=time.Now().Format("2006-01-02")
+	date := time.Now().Format("2006-01-02")
 	base := "daily-" + date + ".csv"
 	if _, err := os.Stat(dir); err == nil {
 	} else {
@@ -142,24 +142,24 @@ func createCsvDaily(file string) *os.File {
 		if err != nil {
 			log.Println("Error creating directory")
 			log.Println(err)
-			return nil
+			return nil, ""
 		}
 	}
-	fileName := CheckFile(filepath.Join(dir,base))
+	fileName := CheckFile(filepath.Join(dir, base))
 	f, err := os.Create(fileName)
 	if err != nil {
 		panic(err)
 	}
 	// Write as UTF-8 BOM
 	_, _ = f.WriteString("\xEF\xBB\xBF")
-	return f
+	return f, fileName
 }
 
 func (g *TempSensorConfig) doGenCsvDaily(fileName string) {
 	const secondsPerDay = 24 * 60 * 60
 	fmt.Println("g.Csv.Interval:", g.Csv.Interval)
 	for {
-		f := createCsvDaily(fileName)
+		f, file := createCsvDaily(fileName)
 		w := csv.NewWriter(f)
 		var row []string
 		var title []string
@@ -172,8 +172,8 @@ func (g *TempSensorConfig) doGenCsvDaily(fileName string) {
 		_ = w.Write(row)
 		w.Flush()
 		row = make([]string, 0)
-		for interval := 0; interval < (secondsPerDay/g.Csv.Interval); interval++ {
-			timeStr := time.Now().Format("2006-01-02 15:04:05")
+		for interval := 0; interval < (secondsPerDay / g.Csv.Interval); interval++ {
+			timeStr := time.Now().Format("15:04:05")
 			row = append(row, timeStr)
 			for index := 0; index < len(g.Sensors); index++ {
 				row = append(row, strconv.Itoa(g.Sensors[index].value))
@@ -182,19 +182,32 @@ func (g *TempSensorConfig) doGenCsvDaily(fileName string) {
 			_ = w.Write(row)
 			w.Flush()
 			row = make([]string, 0)
+			go g.UploadCsvFile(file)
 			time.Sleep(time.Second * time.Duration(g.Csv.Interval))
 		}
 		f.Close()
 	}
 }
 
-func (g *TempSensorConfig) genCsvFile(fileName string) {
+func (g *TempSensorConfig) genCsvStatics(fileName string) {
 	go func() {
 		for {
 			time.Sleep(time.Second * time.Duration(g.Csv.Interval))
-			g.doGenCsvFile(fileName)
+			g.doGenCsvStatics(fileName)
+			go g.UploadCsvFile(fileName)
 		}
 	}()
+}
+
+// UploadCsvFile upload csv file to external server
+func (g *TempSensorConfig) UploadCsvFile(fileName string) {
+	ip := g.Csv.Ip
+	port := g.Csv.Port
+	fmt.Printf("connect to server (ip:%s, port:%s)...\n", ip, port)
+	fd, _ := UploadFile(fileName, ip, port)
+	if fd != nil {
+		defer fd.Close()
+	}
 }
 
 func (g *TempSensorConfig) genCsvDaily(fileName string) {
@@ -202,7 +215,7 @@ func (g *TempSensorConfig) genCsvDaily(fileName string) {
 }
 
 func (g *TempSensorConfig) genCsv(fileName string) int {
-	g.genCsvFile(fileName)
+	g.genCsvStatics(fileName)
 	g.genCsvDaily(fileName)
 	return 0
 }
@@ -210,8 +223,8 @@ func (g *TempSensorConfig) genCsv(fileName string) int {
 func (g *TempSensorConfig) HandleCsvFile(fileName string) int {
 	file, err := os.Open(fileName)
 	if err != nil {
-		fmt.Println("FileName is empty from cmdline. Error: ", err)
-		fmt.Println("FileName is fetching from Json file: ", g.Csv.File)
+		fmt.Println("CSV file is empty from cmdline. Error: ", err)
+		fmt.Println("CSV file is fetching from Json file: ", g.Csv.File)
 		fileName = g.Csv.File
 	}
 	defer file.Close()

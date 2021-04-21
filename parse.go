@@ -7,15 +7,15 @@ import (
 )
 
 type SamplingConfig struct {
-	Low	int
-	High int
-	Step int
+	Low      int
+	High     int
+	Step     int
 	Interval int
 }
 
 type PersistenceConfig struct {
 	Interval int
-	File string
+	File     string
 }
 
 type NotifyConfig struct {
@@ -24,25 +24,27 @@ type NotifyConfig struct {
 
 type CsvConfig struct {
 	Interval int
-	File string
+	File     string
+	Ip       string
+	Port     string
 }
 
 type SensorConfig struct {
-	Name string
-	File string
-	value int
-	dummyTemp int
+	Name               string
+	File               string
+	value              int
+	dummyTemp          int
 	dummyTempIncrement int
-	Cache [32]uint32
+	Cache              [32]uint32
 }
 
 type TempSensorConfig struct {
-	RawData []byte
-	Sampling SamplingConfig
+	RawData     []byte
+	Sampling    SamplingConfig
 	Persistence PersistenceConfig
-	Notify NotifyConfig
-	Csv CsvConfig
-	Sensors []SensorConfig
+	Notify      NotifyConfig
+	Csv         CsvConfig
+	Sensors     []SensorConfig
 }
 
 func NewTempSensor() *TempSensorConfig {

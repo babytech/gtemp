@@ -14,7 +14,9 @@
   },
   "Csv" : {
     "interval": 10,
-    "file": "/tmp/temp/data/temp.csv"
+    "file": "/tmp/temp/data/MF14/temp.csv",
+    "ip": "127.0.0.1",
+    "port": "4321"
   },
   "Sensors": [
     {
