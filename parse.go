@@ -29,6 +29,11 @@ type CsvConfig struct {
 	Port     string
 }
 
+type FuseConfig struct {
+	Prefix string
+	Path   string
+}
+
 type SensorConfig struct {
 	Name               string
 	File               string
@@ -44,6 +49,7 @@ type TempSensorConfig struct {
 	Persistence PersistenceConfig
 	Notify      NotifyConfig
 	Csv         CsvConfig
+	Fuse        FuseConfig
 	Sensors     []SensorConfig
 }
 

@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bazil.org/fuse"
+	"bazil.org/fuse/fs"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"strconv"
@@ -55,14 +58,14 @@ func (g *TempSensorConfig) ReadDataFromPersistence() error {
 		return err
 	}
 	g.RawData = append(g.RawData, []byte(content)...)
-	fmt.Println("ReadDataFromPersistence() -> len(g.RawData) = ",len(g.RawData))
+	fmt.Println("ReadDataFromPersistence() -> len(g.RawData) = ", len(g.RawData))
 	if len(g.RawData) < ByteLengthPerTemp*len(g.Sensors) {
-		reserveRawLength := ByteLengthPerTemp*len(g.Sensors)-len(g.RawData)
+		reserveRawLength := ByteLengthPerTemp*len(g.Sensors) - len(g.RawData)
 		reserveRawData := make([]byte, reserveRawLength)
 		g.RawData = append(g.RawData, reserveRawData...)
-		fmt.Println("len(g.RawData) < ByteLengthPerTemp*len(g.Sensors) -> len(g.RawData) = ",len(g.RawData))
+		fmt.Println("len(g.RawData) < ByteLengthPerTemp*len(g.Sensors) -> len(g.RawData) = ", len(g.RawData))
 	}
-	fmt.Println("ReadDataFromPersistence() -> ByteLengthPerTemp*len(g.Sensors) = ",  ByteLengthPerTemp*len(g.Sensors))
+	fmt.Println("ReadDataFromPersistence() -> ByteLengthPerTemp*len(g.Sensors) = ", ByteLengthPerTemp*len(g.Sensors))
 	for index := 0; index < len(g.Sensors); index++ {
 		// get each 128 bytes from v.RawData
 		lowRange := index * ByteLengthPerTemp
@@ -118,14 +121,16 @@ func (g *TempSensorConfig) StartTimer() {
 }
 
 func (g *TempSensorConfig) SignalListen() {
-	c := make(chan os.Signal)
-	signal.Notify(c, syscall.SIGUSR2)
-	for {
-		s := <-c
-		// Receive signal and do custom job
-		fmt.Println("get signal:", s)
-		g.writeDataToPersistence()
-	}
+	go func() {
+		c := make(chan os.Signal)
+		signal.Notify(c, syscall.SIGUSR2)
+		for {
+			s := <-c
+			// Receive signal and do custom job
+			fmt.Println("get signal:", s)
+			g.writeDataToPersistence()
+		}
+	}()
 }
 
 func (g *TempSensorConfig) doCreateDummyTemp(index int) {
@@ -148,6 +153,48 @@ func (g *TempSensorConfig) createDummyTemp() {
 	fmt.Println("create dummy temperature for sensors...")
 }
 
+func (g *TempSensorConfig) FuseMain() {
+	c, err := fuse.Mount(g.Fuse.Path)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer func(c *fuse.Conn) {
+		_ = c.Close()
+	}(c)
+	srv := fs.New(c, nil)
+	fileSys := &FS{
+		&Dir{Node: Node{name: "head", inode: NewInode()}, directories: &[]*Dir{}}}
+	dirs := make([]*Dir, 0)
+	for index := 0; index < len(g.Sensors); index++ {
+		dirNode := &Dir{Node: Node{name: g.Sensors[index].Name, inode: NewInode()}, files: &[]*File{
+			{Node: Node{name: "temp", inode: NewInode()}, item: g.Sensors[index].File},
+		}}
+		dirs = append(dirs, dirNode)
+	}
+	fileSys.root.directories = &dirs
+	log.Println("About to serve fs")
+	if err := srv.Serve(fileSys); err != nil {
+		log.Panicln(err)
+	}
+}
+
+func (g *TempSensorConfig) StartFuse() error {
+	go func() {
+		if g.Fuse.Prefix == "" || g.Fuse.Path == "" {
+			fmt.Printf("Mount Point is empty! temp_prefix = %s, mount_point = %s\n", g.Fuse.Prefix, g.Fuse.Path)
+			os.Exit(2)
+		}
+		mountPoint := g.Fuse.Path
+		err := os.MkdirAll(mountPoint, 0711)
+		if err != nil {
+			log.Println("Error creating directory", mountPoint)
+			log.Println(err)
+		}
+		g.FuseMain()
+	}()
+	return nil
+}
+
 func StartMonitorTask() {
 	fmt.Printf("\n===> gtemp [%s]: Start Monitoring Task for capture temperature...\n", VersionOfThisProgram)
 	ConfigFileForTempMonitor := prefix + jsonFile
@@ -167,11 +214,19 @@ func StartMonitorTask() {
 		fmt.Println(tempSensor.Sampling)
 		fmt.Println(tempSensor.Persistence)
 		fmt.Println(tempSensor.Csv)
+		fmt.Println(tempSensor.Fuse)
 		for index := 0; index < len(tempSensor.Sensors); index++ {
 			fmt.Println(tempSensor.Sensors[index].Name)
 			fmt.Println(tempSensor.Sensors[index].File)
 		}
 		os.Exit(0)
+	}
+
+	// Startup FUSE function
+	err = tempSensor.StartFuse()
+	if err != nil {
+		fmt.Println("StartFuse: Fail!")
+		os.Exit(1)
 	}
 
 	// Initial read data from eeprom file
@@ -195,7 +250,7 @@ func StartMonitorTask() {
 	tempSensor.StartTimer()
 
 	// Handle signal for write data to eeprom file
-	go tempSensor.SignalListen()
+	tempSensor.SignalListen()
 
 	// Handle generate CSV file
 	result := tempSensor.HandleCsvFile(prefix + csvFile)

@@ -18,6 +18,10 @@
     "ip": "10.182.105.138",
     "port": "4321"
   },
+  "Fuse" : {
+    "prefix": "/dev/alu_temp",
+    "path": "/tmp/isam/slot_default/temp"
+  },
   "Sensors": [
     {
       "name": "temp1",

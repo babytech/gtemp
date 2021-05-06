@@ -7,7 +7,7 @@ Monitor the thermal and temperature history of your device
 
 - Version:
   -
-  **0.0.8**
+  **0.0.9**
 
 - Requirements
   -
@@ -118,4 +118,6 @@ show version and exit
   0.0.7 --- provide to show current temperature of each sensor
 
   0.0.8 --- support upload csv file to external server
+
+  0.0.9 --- support FUSE function and generate temperature of each sensor as file node on mount directory
 
