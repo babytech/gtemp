@@ -103,7 +103,7 @@ func UnitTestReadCsv(fileName string) {
 	}
 }
 
-func (g *TempSensorConfig) doGenCsvStatics(file string) {
+func (g *TempSensorConfig) doGenCsvStatistics(file string) {
 	fileName := CheckFile(file)
 	f, err := os.Create(fileName)
 	if err != nil {
@@ -189,11 +189,11 @@ func (g *TempSensorConfig) doGenCsvDaily(fileName string) {
 	}
 }
 
-func (g *TempSensorConfig) genCsvStatics(fileName string) {
+func (g *TempSensorConfig) genCsvStatistics(fileName string) {
 	go func() {
 		for {
 			time.Sleep(time.Second * time.Duration(g.Csv.Interval))
-			g.doGenCsvStatics(fileName)
+			g.doGenCsvStatistics(fileName)
 			go g.UploadCsvFile(fileName)
 		}
 	}()
@@ -215,7 +215,7 @@ func (g *TempSensorConfig) genCsvDaily(fileName string) {
 }
 
 func (g *TempSensorConfig) genCsv(fileName string) int {
-	g.genCsvStatics(fileName)
+	g.genCsvStatistics(fileName)
 	g.genCsvDaily(fileName)
 	return 0
 }

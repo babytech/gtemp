@@ -17,27 +17,38 @@ var (
 	writeCsvFile bool
 	dummyTemp    bool
 	sendSignal   string
+	mountDir     string
 	prefix       string
 	jsonFile     string
 	csvFile      string
+	dataFile     string
 	notifyFile   string
 	eepromSize   uint
 )
 
-const VersionOfThisProgram = "0.0.9"
+const VersionInformation = "0.1.0"
 const AuthorInformation = "Babytech"
+const welcomeInformation = `
+         __
+   _____/  |_  ____   _____ ______      Temperature Monitoring
+  / ___\   __\/ __ \ /     \\____ \      --- written by Golang
+ / /_/  >  | \  ___/|  Y Y  \  |_> >
+ \___  /|__|  \___  >__|_|  /   __/     Author:  %s
+/_____/           \/      \/|__|        Version: %s
+
+`
 
 func showVersion() {
-	fmt.Println("Version:", VersionOfThisProgram)
+	fmt.Println("gtemp version: ", VersionInformation)
 }
 
 func usage() {
 	var programName = filepath.Base(os.Args[0])
-	_, _ = fmt.Fprintf(os.Stderr, `%s version: gtemp %s
+	_, _ = fmt.Fprintf(os.Stderr, `%s version: %s
 Author: %s
-Usage: gtemp [-hvVtTrwd] [-s signal] [-p prefix] [-j json_file] [-c csv_file] [-n notify_file] [-e size]
+Usage: gtemp [-hvVtTrwf] [-s signal] [-j json_file] [-m mount_point] [-p prefix] [-c csv_file] [-d data_file] [-n notify_file] [-e size]
 Options:
-`, programName, VersionOfThisProgram, AuthorInformation)
+`, programName, VersionInformation, AuthorInformation)
 	flag.PrintDefaults()
 }
 
@@ -49,13 +60,15 @@ func InitCmdLine() {
 	flag.BoolVar(&TestJsonFile, "T", false, "test JSON configuration, dump it and exit")
 	flag.BoolVar(&readCsvFile, "r", false, "read CSV file and exit")
 	flag.BoolVar(&writeCsvFile, "w", false, "write CSV file and exit")
-	flag.BoolVar(&dummyTemp, "d", false, "write dummy temperature into sensor file period")
+	flag.BoolVar(&dummyTemp, "f", false, "write dummy temperature into sensor file period")
 	// Note default is: -s string，change to: -s signal here
 	flag.StringVar(&sendSignal, "s", "", "send `signal` to a master process: stop, quit, reopen, reload")
-	flag.StringVar(&prefix, "p", "/tmp/", "set `prefix` path")
-	flag.StringVar(&jsonFile, "j", "temp/config.json", "set configuration 'input_file` -> json format")
-	flag.StringVar(&csvFile, "c", "temp/data/gTemp.csv", "set configuration 'output_file` -> csv format")
-	flag.StringVar(&notifyFile, "n", "temp/notify.txt", "set notify file to flush data cache to persistent storage <eeprom>")
+	flag.StringVar(&jsonFile, "j", "config.json", "set configuration 'input_file' ->[.json])")
+	flag.StringVar(&mountDir, "m", "/tmp/temp/fuse", "set mount point path for FUSE")
+	flag.StringVar(&prefix, "p", "./temp/data/", "set `prefix` path")
+	flag.StringVar(&csvFile, "c", "MF14/temp.csv", "set statistics <product>/<csv_file> as 'input_file' ->[.csv]")
+	flag.StringVar(&dataFile, "d", "./temp/data.bin", "set data 'input_file' ->[.bin] to generate statistics of history temperature")
+	flag.StringVar(&notifyFile, "n", "./temp/notify.txt", "set notify 'input_file' ->[.txt] to flush data cache to persistent storage <eeprom>")
 	flag.UintVar(&eepromSize, "e", 128*16, "set the raw data size 'n bytes' of persistent storage <eeprom>")
 	// Override default usage function
 	flag.Usage = usage

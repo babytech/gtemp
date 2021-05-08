@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 )
 
 func genLiquidItems(data []float32) []opts.LiquidData {
@@ -56,6 +57,9 @@ func drawGauge(w http.ResponseWriter, r *csv.Reader) *charts.Gauge {
 var (
 	itemCntPie = 4
 	seasons    = []string{"Spring", "Summer", "Autumn ", "Winter"}
+	tempRange  = []string{"<-40℃", "-40~-35℃", "-35~-30℃", "-30~-25℃", "-25~-20℃", "-20~-15℃", "-15~-10℃", "-10~-5℃",
+		"-5~0℃", "0~5℃", "5~10℃", "10~15℃", "15~20℃", "20~25℃", "25~30℃", "30~35℃", "35~40℃", "40~45℃", "45~50℃",
+		"50~55℃", "55~60℃", "60~65℃", "65~70℃", "70~75℃", "75~80℃", "80~85℃", "85~90℃", "90~95℃", "95~100℃", ">100℃"}
 )
 
 func generatePieItems() []opts.PieData {
@@ -66,26 +70,60 @@ func generatePieItems() []opts.PieData {
 	return items
 }
 
-func drawPieRoseRadius(w http.ResponseWriter, r *csv.Reader) *charts.Pie {
-	pie := charts.NewPie()
-	pie.SetGlobalOptions(
-		charts.WithTitleOpts(opts.Title{
-			Title: "Rose(Radius)",
-		}),
-	)
-	pie.AddSeries("pie", generatePieItems()).
-		SetSeriesOptions(
-			charts.WithLabelOpts(opts.Label{
-				Show:      true,
-				Formatter: "{b}: {c}",
-			}),
-			charts.WithPieChartOpts(opts.PieChart{
-				Radius:   []string{"30%", "75%"},
-				RoseType: "radius",
-			}),
-		)
-	_ = pie.Render(w)
-	return pie
+func drawPieRoseRadius(w http.ResponseWriter, r *csv.Reader) []*charts.Pie {
+	var pies []*charts.Pie
+	rowLine := 0
+	for {
+		row, err := r.Read()
+		if err != nil && err != io.EOF {
+			http.Error(w, "File read failed.", 404)
+			fmt.Println("r.Read() Error:", err)
+		}
+		if err == io.EOF {
+			break
+		}
+		fmt.Println("row: ", row)
+		if rowLine != 0 {
+			pie := charts.NewPie()
+			pie.SetGlobalOptions(
+				charts.WithTitleOpts(opts.Title{
+					Title: row[0],
+				}),
+			)
+
+			items := make([]opts.PieData, 0)
+			for i, n := range row {
+				if i != 0 {
+					v, err := strconv.Atoi(n)
+					if err != nil {
+						fmt.Println(err)
+					}
+					if v != 0 {
+						items = append(items, opts.PieData{Name: tempRange[i-1], Value: v})
+						fmt.Println("name:", tempRange[i], "value:", v)
+					}
+				}
+
+			}
+
+			pie.AddSeries("pie", items).
+				SetSeriesOptions(
+					charts.WithLabelOpts(opts.Label{
+						Show:      true,
+						Formatter: "{b}: {c}",
+					}),
+					charts.WithPieChartOpts(opts.PieChart{
+						Radius:   []string{"30%", "75%"},
+						RoseType: "radius",
+					}),
+				)
+			_ = pie.Render(w)
+			pies = append(pies, pie)
+
+		}
+		rowLine++
+	}
+	return pies
 }
 
 func drawLineDaily(w http.ResponseWriter, r *csv.Reader, fileName string) {
@@ -213,9 +251,7 @@ func drawBar(w http.ResponseWriter, r *csv.Reader) {
 				),
 			)
 		} else {
-			bar.SetXAxis([]string{"<-40", "-40~-35", "-35~-30", "-30~-25", "-25~-20", "-20~-15", "-15~-10", "-10~-5",
-				"-5~0", "0~5", "5~10", "10~15", "15~20", "20~25", "25~30", "30~35", "35~40", "40~45", "45~50",
-				"50~55", "55~60", "60~65", "65~70", "70~75", "75~80", "80~85", "85~90", "90~95", "95~100", ">100"})
+			bar.SetXAxis(tempRange)
 		}
 		rowLine++
 	}
@@ -228,7 +264,7 @@ func drawChart(w http.ResponseWriter, r *http.Request) (*csv.Reader, *os.File, s
 	session := params["session"]
 	fmt.Printf("#####tag:%s, session:%s\n", tag, session)
 	fmt.Println("======dir:", "data/"+tag+"/"+session)
-	inputFile := fmt.Sprintf("./tmp/temp/data/%v/%v.csv", tag, session)
+	inputFile := fmt.Sprintf("./temp/data/%v/%v.csv", tag, session)
 	fmt.Println("inputFile:", inputFile)
 	fs, err := os.Open(inputFile)
 	if err != nil {
@@ -265,8 +301,10 @@ func genPages(w http.ResponseWriter, r *csv.Reader) *components.Page {
 	page.AddCharts(
 		drawLiquidPin(w, r),
 		drawGauge(w, r),
-		drawPieRoseRadius(w, r),
 	)
+	for _, n := range drawPieRoseRadius(w, r) {
+		page.AddCharts(n)
+	}
 	return page
 }
 
@@ -336,7 +374,7 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 func chartHttpServer() {
 	router := mux.NewRouter().StrictSlash(false)
 	router.HandleFunc("/", statisticsChart)
-	router.HandleFunc("/{tag}/{session}/statics", statisticsChart)
+	router.HandleFunc("/{tag}/{session}/statistics", statisticsChart)
 	router.HandleFunc("/{tag}/{session}/daily", dailyChart)
 	router.HandleFunc("/{tag}/{session}/status", statusChart)
 	router.HandleFunc("/upload", uploadHandler)

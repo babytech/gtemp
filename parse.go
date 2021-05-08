@@ -30,8 +30,8 @@ type CsvConfig struct {
 }
 
 type FuseConfig struct {
-	Prefix string
-	Path   string
+	Path  string
+	Mount string
 }
 
 type SensorConfig struct {

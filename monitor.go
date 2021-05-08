@@ -52,20 +52,30 @@ func (g *TempSensorConfig) writeDataToPersistence() {
 	WriteFile(g.Persistence.File, g.RawData)
 }
 
-func (g *TempSensorConfig) ReadDataFromPersistence() error {
-	content, err := ReadFile(g.Persistence.File)
+func (g *TempSensorConfig) ReadDataFromPersistence() (string, error) {
+	var persistenceFile string
+	fmt.Println("History Data File:", dataFile)
+	_, err := os.Open(dataFile)
 	if err != nil {
-		return err
+		fmt.Printf("History Data File: %s is not exist\n", dataFile)
+		persistenceFile = g.Persistence.File
+	} else {
+		fmt.Printf("History Data File: %s is exist\n", dataFile)
+		persistenceFile = dataFile
+	}
+	content, err := ReadFile(persistenceFile)
+	if err != nil {
+		return persistenceFile, err
 	}
 	g.RawData = append(g.RawData, []byte(content)...)
-	fmt.Println("ReadDataFromPersistence() -> len(g.RawData) = ", len(g.RawData))
+	//fmt.Println("ReadDataFromPersistence() -> len(g.RawData) = ", len(g.RawData))
 	if len(g.RawData) < ByteLengthPerTemp*len(g.Sensors) {
 		reserveRawLength := ByteLengthPerTemp*len(g.Sensors) - len(g.RawData)
 		reserveRawData := make([]byte, reserveRawLength)
 		g.RawData = append(g.RawData, reserveRawData...)
 		fmt.Println("len(g.RawData) < ByteLengthPerTemp*len(g.Sensors) -> len(g.RawData) = ", len(g.RawData))
 	}
-	fmt.Println("ReadDataFromPersistence() -> ByteLengthPerTemp*len(g.Sensors) = ", ByteLengthPerTemp*len(g.Sensors))
+	//fmt.Println("ReadDataFromPersistence() -> ByteLengthPerTemp*len(g.Sensors) = ", ByteLengthPerTemp*len(g.Sensors))
 	for index := 0; index < len(g.Sensors); index++ {
 		// get each 128 bytes from v.RawData
 		lowRange := index * ByteLengthPerTemp
@@ -78,7 +88,7 @@ func (g *TempSensorConfig) ReadDataFromPersistence() error {
 			g.Sensors[index].Cache[k] = BytesToInt(rawBuffer[lowPerRange:highPerRange])
 		}
 	}
-	return nil
+	return persistenceFile, nil
 }
 
 func (g *TempSensorConfig) MonitorBody(index int) {
@@ -153,8 +163,8 @@ func (g *TempSensorConfig) createDummyTemp() {
 	fmt.Println("create dummy temperature for sensors...")
 }
 
-func (g *TempSensorConfig) FuseMain() {
-	c, err := fuse.Mount(g.Fuse.Path)
+func (g *TempSensorConfig) FuseMain(path string) {
+	c, err := fuse.Mount(path)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -179,38 +189,44 @@ func (g *TempSensorConfig) FuseMain() {
 }
 
 func (g *TempSensorConfig) StartFuse() error {
+	var mountPoint string
+	exist, err := PathExists(mountDir)
+	if err != nil {
+		fmt.Printf("Error: %s Call PathExists fail!\n", mountDir)
+		return err
+	} else if exist == false {
+		fmt.Printf("FUSE mount directory: %s is not exist from cmdline!\n", mountDir)
+		fmt.Println("FUSE mount directory is fetching from Json file: ", g.Fuse.Mount)
+		mountPoint = g.Fuse.Mount
+	} else {
+		fmt.Printf("FUSE mount directory: %s is exist from cmdline.\n", mountDir)
+		fmt.Println("FUSE mount directory is fetching from cmdline: ", mountDir)
+		mountPoint = mountDir
+	}
 	go func() {
-		if g.Fuse.Prefix == "" || g.Fuse.Path == "" {
-			fmt.Printf("Mount Point is empty! temp_prefix = %s, mount_point = %s\n", g.Fuse.Prefix, g.Fuse.Path)
-			os.Exit(2)
-		}
-		mountPoint := g.Fuse.Path
+		fmt.Println("FUSE Mount Directory:", mountPoint)
 		err := os.MkdirAll(mountPoint, 0711)
 		if err != nil {
 			log.Println("Error creating directory", mountPoint)
 			log.Println(err)
 		}
-		g.FuseMain()
+		g.FuseMain(mountPoint)
 	}()
 	return nil
 }
 
-func StartMonitorTask() {
-	fmt.Printf("\n===> gtemp [%s]: Start Monitoring Task for capture temperature...\n", VersionOfThisProgram)
-	ConfigFileForTempMonitor := prefix + jsonFile
-	fmt.Println("Configuration File :", ConfigFileForTempMonitor)
-	fmt.Printf("size of eeprom : 0x%x\n", eepromSize)
+func ParseConfigurationFile(fileName string) *TempSensorConfig {
 	tempSensor := NewTempSensor()
-	err := tempSensor.ParseJsonFile(ConfigFileForTempMonitor)
+	err := tempSensor.ParseJsonFile(fileName)
 	if err != nil {
-		fmt.Printf("Test Configure File: %s Fail!\n", ConfigFileForTempMonitor)
-		os.Exit(1)
+		fmt.Printf("Test Configure File: %s Fail!\n", fileName)
+		fmt.Printf("===> gtemp [%s]: exit...\n", VersionInformation)
+		return nil
 	} else if testJsonFile {
-		fmt.Printf("Test Configure File: %s OK!\n", ConfigFileForTempMonitor)
-		os.Exit(0)
+		fmt.Printf("Test Configure File: %s OK!\n", fileName)
 	} else if TestJsonFile {
-		fmt.Printf("Test Configure File: %s OK!\n", ConfigFileForTempMonitor)
-		fmt.Println("Parse Configure File Data Result :")
+		fmt.Printf("Test Configure JSON File: %s OK!\n", fileName)
+		fmt.Println("Parse Configure JSON File Result:")
 		fmt.Println(tempSensor.Sampling)
 		fmt.Println(tempSensor.Persistence)
 		fmt.Println(tempSensor.Csv)
@@ -221,26 +237,51 @@ func StartMonitorTask() {
 		}
 		os.Exit(0)
 	}
+	return tempSensor
+}
 
+func StartMonitorTask() {
+	var err error
+	var result int
+	var configFileForTempMonitor string
+	var csvFileForTempMonitor string
+	var persistenceFile string
+	_, _ = fmt.Fprintf(os.Stderr, welcomeInformation, AuthorInformation, VersionInformation)
+	fmt.Printf("===> gtemp [%s]: Start Monitoring Task for capture temperature...\n", VersionInformation)
+	fmt.Printf("size of eeprom: 0x%x\n", eepromSize)
+	// Parse Configuration File
+	configFileForTempMonitor = jsonFile
+	fmt.Println("Configuration File:", configFileForTempMonitor)
+	tempSensor := ParseConfigurationFile(configFileForTempMonitor)
+	if tempSensor == nil {
+		fmt.Println("Parse Configuration File Fail!")
+		goto failExit
+	}
+	csvFileForTempMonitor = prefix + csvFile
+	fmt.Println("CSV File:", csvFileForTempMonitor)
+	// Initial read data from eeprom file
+	persistenceFile, err = tempSensor.ReadDataFromPersistence()
+	fmt.Println("Persistence File:", persistenceFile)
+	if err != nil {
+		fmt.Println("ReadDataFromPersistence: Fail!")
+		goto failExit
+	} else if persistenceFile == dataFile {
+		fmt.Println("Generate CSV file: ", csvFileForTempMonitor)
+		tempSensor.doGenCsvStatistics(csvFileForTempMonitor)
+		fmt.Printf("Upload CSV file to Server -> %v:%d\n", tempSensor.Csv.Ip, &tempSensor.Csv.Port)
+		tempSensor.UploadCsvFile(csvFileForTempMonitor)
+		goto successExit
+	}
 	// Startup FUSE function
 	err = tempSensor.StartFuse()
 	if err != nil {
 		fmt.Println("StartFuse: Fail!")
-		os.Exit(1)
+		goto failExit
 	}
-
-	// Initial read data from eeprom file
-	err = tempSensor.ReadDataFromPersistence()
-	if err != nil {
-		fmt.Println("ReadDataFromPersistence: Fail!")
-		os.Exit(1)
-	}
-
 	// Generate dummy temperature and write to per sensor file
 	if dummyTemp {
 		tempSensor.createDummyTemp()
 	}
-
 	// Start Monitoring for each temperature sensor
 	for index := 0; index < len(tempSensor.Sensors); index++ {
 		tempSensor.MonitorBody(index)
@@ -248,17 +289,21 @@ func StartMonitorTask() {
 	}
 	// Create timer to do flush data cache
 	tempSensor.StartTimer()
-
 	// Handle signal for write data to eeprom file
 	tempSensor.SignalListen()
-
 	// Handle generate CSV file
-	result := tempSensor.HandleCsvFile(prefix + csvFile)
+	result = tempSensor.HandleCsvFile(csvFileForTempMonitor)
 	if result != 0 {
-		os.Exit(0)
+		goto failExit
 	}
-
 	// Before board reset using script to set /tmp/temp/notify.txt as 1,
 	// Register this notify to trigger write data to eeprom file
-	tempSensor.WatchFile(prefix+notifyFile, tempSensor.writeDataToPersistence)
+	tempSensor.WatchFile(notifyFile, tempSensor.writeDataToPersistence)
+	return
+failExit:
+	fmt.Printf("===> gtemp [%s]: NOK exit...\n", VersionInformation)
+	os.Exit(1)
+successExit:
+	fmt.Printf("===> gtemp [%s]: OK exit...\n", VersionInformation)
+	os.Exit(0)
 }

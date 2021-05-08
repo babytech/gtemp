@@ -44,6 +44,7 @@ func (d *Dir) Attr(_ context.Context, a *fuse.Attr) error {
 	a.Mode = os.ModeDir | 0444
 	return nil
 }
+
 func (d *Dir) Lookup(_ context.Context, name string) (fs.Node, error) {
 	log.Println("Requested lookup for ", name)
 	if d.files != nil {
@@ -141,6 +142,7 @@ func (f *File) Attr(_ context.Context, a *fuse.Attr) error {
 	a.Size = uint64(len(f.data))
 	return nil
 }
+
 func (f *File) Read(_ context.Context, req *fuse.ReadRequest, resp *fuse.ReadResponse) error {
 	log.Println("Requested Read on File", f.name)
 	fuseutil.HandleRead(req, resp, f.data)

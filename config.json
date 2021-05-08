@@ -15,12 +15,12 @@
   "Csv" : {
     "interval": 10,
     "file": "/tmp/temp/data/MF14/temp.csv",
-    "ip": "10.182.105.138",
+    "ip": "127.0.0.1",
     "port": "4321"
   },
   "Fuse" : {
-    "prefix": "/dev/alu_temp",
-    "path": "/tmp/isam/slot_default/temp"
+    "path": "/dev/alu_temp",
+    "mount": "/tmp/isam/slot_default/temp"
   },
   "Sensors": [
     {

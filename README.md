@@ -7,7 +7,7 @@ Monitor the thermal and temperature history of your device
 
 - Version:
   -
-  **0.0.9**
+  **0.1.0**
 
 - Requirements
   -
@@ -35,71 +35,57 @@ Monitor the thermal and temperature history of your device
 
 - Usage
   -
-
-gtemp [-hvVtTrwd] [-s signal] [-p prefix] [-j json_file] [-c csv_file] [-n notify_file][-m chart_mode <bar/line>] [-e size]
+  gtemp [-hvVtTrwf] [-s signal] [-j json_file] [-m mount_point] [-p prefix] [-c csv_file] [-d data_file] [-n notify_file] [-e size]
 
 Options:
 
--T
+-T	test JSON configuration, dump it and exit
 
-test JSON configuration, dump it and exit
-
--V
-
-show version and configure options then exit
+-V	show version and configure options then exit
 
 -c string
 
-set configuration 'output_file` -> csv format (default "temp/data/gTemp.csv")
+set statistics <product>/<csv_file> as 'input_file' ->[.csv] (default "MF14/temp.csv")
 
--d
+-d string
 
-write dummy temperature into sensor file period
+set data 'input_file' ->[.bin] to generate statistics of history temperature (default "./temp/data.bin")
 
 -e uint
 
 set the raw data size 'n bytes' of persistent storage <eeprom> (default 2048)
 
--h
+-f	write dummy temperature into sensor file period
 
-this help (default true)
+-h	this help
 
 -j string
 
-set configuration 'input_file` -> json format (default "temp/config.json")
+set configuration 'input_file' ->[.json]) (default "config.json")
 
 -m string
 
-set mode for show chart from the output of csv file (default "bar")
+set mount point path for FUSE (default "/tmp/temp/fuse")
 
 -n string
 
-set notify file to flush data cache to persistent storage <eeprom> (default "temp/notify.txt")
+set notify 'input_file' ->[.txt] to flush data cache to persistent storage <eeprom> (default "./temp/notify.txt")
 
 -p prefix
 
-set prefix path (default "/tmp/")
+set prefix path (default "./temp/data/")
 
--r
-
-read CSV file and exit
-
--w
-
-write CSV file and exit
+-r	read CSV file and exit
 
 -s signal
 
 send signal to a master process: stop, quit, reopen, reload
 
--t
+-t	test JSON configuration and exit
 
-test JSON configuration and exit
+-v	show version and exit
 
--v
-
-show version and exit
-
+-w	write CSV file and exit
 
 - History
   -
@@ -120,4 +106,6 @@ show version and exit
   0.0.8 --- support upload csv file to external server
 
   0.0.9 --- support FUSE function and generate temperature of each sensor as file node on mount directory
+
+  0.1.0 --- support show history temperature from csv file
 

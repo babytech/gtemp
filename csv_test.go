@@ -26,7 +26,7 @@ func TestUnitTestReadCsv(t *testing.T) {
 func TestTempSensorConfig_HandleCsvFile(t *testing.T) {
 	fileName := "/tmp/temp/test.csv"
 	tempSensor := NewTempSensor()
-	err := tempSensor.ParseJsonFile("/tmp/temp/config.json")
+	err := tempSensor.ParseJsonFile("./config.json")
 	if err != nil {
 		t.Error("Test Configure File: Fail!")
 	}
