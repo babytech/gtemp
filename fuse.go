@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"fmt"
 )
 
 var inode uint64
@@ -145,27 +146,27 @@ func (f *File) Attr(_ context.Context, a *fuse.Attr) error {
 
 func (f *File) Read(_ context.Context, req *fuse.ReadRequest, resp *fuse.ReadResponse) error {
 	log.Println("Requested Read on File", f.name)
+	fmt.Printf("[FUSE]===> f.data: %v\n",f.data)
 	fuseutil.HandleRead(req, resp, f.data)
 	return nil
 }
 
 func (f *File) ReadAll(context.Context) ([]byte, error) {
-	log.Println("Reading all of file", f.name)
-	log.Println("Requested Read on File", f.name)
+	log.Println("[FUSE]===> Reading all of file", f.name)
 	content, _ := ReadFile(f.item)
-	//fmt.Printf("File: %s, Content: %s\n",f.item, content)
+	fmt.Printf("[FUSE]===> File: %s, Content: %s\n",f.item, content)
 	str := strings.Replace(content, "\n", "", -1)
 	value, err := strconv.Atoi(str)
-	//fmt.Printf("value: %d\n",value)
+	fmt.Printf("[FUSE]===> value: %d\n",value)
 	if err != nil {
 		return nil, err
 	}
 	degrees := value / 1000
 	mDegrees := value % 1000
 	strContent := strconv.Itoa(degrees) + "." + strconv.Itoa(mDegrees)
-	//fmt.Printf("strContent: %v\n",strContent)
+	fmt.Printf("[FUSE]===> strContent: %v\n",strContent)
 	f.data = []byte(strContent)
-	//fmt.Printf("f.data: %v\n",f.data)
+	fmt.Printf("[FUSE]===> f.data: %v\n",f.data)
 	return f.data, nil
 }
 
