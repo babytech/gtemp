@@ -11,64 +11,154 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"math/rand"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
+	"time"
 )
 
-func genLiquidItems(data []float32) []opts.LiquidData {
-	items := make([]opts.LiquidData, 0)
-	for i := 0; i < len(data); i++ {
-		items = append(items, opts.LiquidData{Value: data[i]})
-	}
-	return items
-}
+const versionInformation = "0.1.1"
+const authorInformation = "Babytech"
+const chartInformation = `
+         __               __
+   _____/ /_  ____ ______/ /_     Temperature Monitoring Web Tools
+  / ___/ __ \/ __ \/ ___/ __/                --- written by Golang
+ / /__/ / / / /_/ / /  / /_       Author: %s
+ \___/_/ /_/\__,_/_/   \__/       Version: %s
 
-func drawLiquidPin(w http.ResponseWriter, r *csv.Reader) *charts.Liquid {
-	liquid := charts.NewLiquid()
-	liquid.SetGlobalOptions(
-		charts.WithTitleOpts(opts.Title{
-			Title: "温度传感器温度水位",
-		}),
-	)
-	liquid.AddSeries("liquid", genLiquidItems([]float32{0.3, 0.4, 0.5})).
-		SetSeriesOptions(
-			charts.WithLiquidChartOpts(opts.LiquidChart{
-				IsWaveAnimation: true,
-				Shape:           "pin",
+`
+
+func drawLiquidPin(w http.ResponseWriter, r *csv.Reader) []*charts.Liquid {
+	var liquids []*charts.Liquid
+	var liquidTitle string
+	var data []float32
+	var ratio float32
+	row := make([]string, 0)
+	rowData := make([]string, 0)
+	item := make([]opts.LiquidData, 0)
+	const lowValue = -30
+	const highValue = 80
+	name, err := r.Read()
+	if err != nil && err != io.EOF {
+		http.Error(w, "File read failed.", 404)
+		fmt.Println("r.Read() Error:", err)
+	}
+	if err == io.EOF {
+		fmt.Println("r.Read() Error:", err)
+	}
+	for {
+		rowData, err = r.Read()
+		if err != nil && err != io.EOF {
+			http.Error(w, "File read failed.", 404)
+			fmt.Println("r.Read() Error:", err)
+		}
+		if err == io.EOF {
+			break
+		}
+		row = rowData
+	}
+	//fmt.Println("row: ", row)
+	for i := 1; i < len(row); i++ {
+		liquid := charts.NewLiquid()
+		item = make([]opts.LiquidData, 0)
+		value, _ := strconv.Atoi(row[i])
+		if value > 0 {
+			ratio = float32(value) / highValue
+		} else {
+			ratio = float32(math.Abs(float64(value) / lowValue))
+		}
+		data = []float32{ratio, ratio * 0.8, ratio * 1.2}
+		for j := 0; j < len(data); j++ {
+			item = append(item, opts.LiquidData{Value: data[j]})
+		}
+		liquidTitle = "温度传感器" + string(name[i]) + "温度水位"
+		liquid.SetGlobalOptions(
+			charts.WithTitleOpts(opts.Title{
+				Title: liquidTitle,
 			}),
 		)
-	_ = liquid.Render(w)
-	return liquid
+		liquid.AddSeries("liquid", item).
+			SetSeriesOptions(
+				charts.WithLiquidChartOpts(opts.LiquidChart{
+					IsWaveAnimation: true,
+					Shape:           "pin",
+				}),
+			)
+		liquids = append(liquids, liquid)
+	}
+	return liquids
 }
 
-func drawGauge(w http.ResponseWriter, r *csv.Reader) *charts.Gauge {
-	gauge := charts.NewGauge()
-	gauge.SetGlobalOptions(
-		charts.WithTitleOpts(opts.Title{Title: "温度传感器温度值"}),
+func drawEffectScatter(w http.ResponseWriter, r *csv.Reader) *charts.EffectScatter {
+	var time string
+	es := charts.NewEffectScatter()
+	row := make([]string, 0)
+	temp := make([]opts.EffectScatterData, 0)
+	name, err := r.Read()
+	if err != nil && err != io.EOF {
+		http.Error(w, "File read failed.", 404)
+		fmt.Println("r.Read() Error:", err)
+	}
+	if err == io.EOF {
+		fmt.Println("r.Read() Error:", err)
+	}
+	for {
+		row, err = r.Read()
+		if err != nil && err != io.EOF {
+			http.Error(w, "File read failed.", 404)
+			fmt.Println("r.Read() Error:", err)
+		}
+		if err == io.EOF {
+			break
+		}
+		time = row[0]
+		temp = make([]opts.EffectScatterData, 0)
+		for i := 1; i < len(row); i++ {
+			temp = append(temp, opts.EffectScatterData{Value: row[i]})
+		}
+	}
+	es.SetGlobalOptions(
+		charts.WithTooltipOpts(opts.Tooltip{Show: true}),
+		charts.WithInitializationOpts(opts.Initialization{
+			Width:  "1200px",
+			Height: "600px",
+		}),
+		charts.WithTitleOpts(opts.Title{
+			Title: time,
+		}),
+		charts.WithYAxisOpts(opts.YAxis{
+			Name: "Temperature value",
+			SplitLine: &opts.SplitLine{
+				Show: true,
+			},
+		}),
+		charts.WithXAxisOpts(opts.XAxis{
+			Name: "Sensors",
+		}),
 	)
-	gauge.AddSeries("ProjectA", []opts.GaugeData{{Name: "#1号温感当前温度", Value: 500}})
-	_ = gauge.Render(w)
-	return gauge
+	es.SetXAxis(name[1:]).AddSeries("temp", temp,
+		charts.WithRippleEffectOpts(opts.RippleEffect{
+			Period:    4,
+			Scale:     10,
+			BrushType: "stroke",
+		})).
+		SetSeriesOptions(charts.WithLabelOpts(
+			opts.Label{
+				Show:     true,
+				Position: "top",
+			}),
+		)
+	return es
 }
 
 var (
-	itemCntPie = 4
-	seasons    = []string{"Spring", "Summer", "Autumn ", "Winter"}
-	tempRange  = []string{"<-40℃", "-40~-35℃", "-35~-30℃", "-30~-25℃", "-25~-20℃", "-20~-15℃", "-15~-10℃", "-10~-5℃",
+	tempRange = []string{"<-40℃", "-40~-35℃", "-35~-30℃", "-30~-25℃", "-25~-20℃", "-20~-15℃", "-15~-10℃", "-10~-5℃",
 		"-5~0℃", "0~5℃", "5~10℃", "10~15℃", "15~20℃", "20~25℃", "25~30℃", "30~35℃", "35~40℃", "40~45℃", "45~50℃",
 		"50~55℃", "55~60℃", "60~65℃", "65~70℃", "70~75℃", "75~80℃", "80~85℃", "85~90℃", "90~95℃", "95~100℃", ">100℃"}
 )
-
-func generatePieItems() []opts.PieData {
-	items := make([]opts.PieData, 0)
-	for i := 0; i < itemCntPie; i++ {
-		items = append(items, opts.PieData{Name: seasons[i], Value: rand.Intn(100)})
-	}
-	return items
-}
 
 func drawPieRoseRadius(w http.ResponseWriter, r *csv.Reader) []*charts.Pie {
 	var pies []*charts.Pie
@@ -90,7 +180,6 @@ func drawPieRoseRadius(w http.ResponseWriter, r *csv.Reader) []*charts.Pie {
 					Title: row[0],
 				}),
 			)
-
 			items := make([]opts.PieData, 0)
 			for i, n := range row {
 				if i != 0 {
@@ -103,9 +192,7 @@ func drawPieRoseRadius(w http.ResponseWriter, r *csv.Reader) []*charts.Pie {
 						fmt.Println("name:", tempRange[i], "value:", v)
 					}
 				}
-
 			}
-
 			pie.AddSeries("pie", items).
 				SetSeriesOptions(
 					charts.WithLabelOpts(opts.Label{
@@ -117,9 +204,7 @@ func drawPieRoseRadius(w http.ResponseWriter, r *csv.Reader) []*charts.Pie {
 						RoseType: "radius",
 					}),
 				)
-			_ = pie.Render(w)
 			pies = append(pies, pie)
-
 		}
 		rowLine++
 	}
@@ -196,7 +281,6 @@ func drawLineDaily(w http.ResponseWriter, r *csv.Reader, fileName string) {
 						opts.Label{Show: true},
 					),
 				)
-			//fmt.Println("=============k", k, "v", v)
 		}
 	}
 	_ = line.Render(w)
@@ -220,9 +304,9 @@ func drawBar(w http.ResponseWriter, r *csv.Reader) {
 			XAxisIndex: []int{0},
 		}),
 		charts.WithTitleOpts(opts.Title{
-			Title:    "temp sensor statistics",
-			Subtitle: "MF14 ISR2103.46",
-			Left:     "10%",
+			Title: "temp sensor statistics",
+			//Subtitle: "MF14 ISR2103.46",
+			Left: "10%",
 		}))
 	rowLine := 0
 	for {
@@ -262,9 +346,17 @@ func drawChart(w http.ResponseWriter, r *http.Request) (*csv.Reader, *os.File, s
 	params := mux.Vars(r)
 	tag := params["tag"]
 	session := params["session"]
+	var inputFile string
 	fmt.Printf("#####tag:%s, session:%s\n", tag, session)
 	fmt.Println("======dir:", "data/"+tag+"/"+session)
-	inputFile := fmt.Sprintf("./temp/data/%v/%v.csv", tag, session)
+	if session == "" {
+		dir := "./temp/data/" + tag + "/daily/"
+		inputFile = fmt.Sprintf("./temp/data/%v/daily/%v", tag, FileModTime(dir))
+	} else if strings.Contains(session, "daily") {
+		inputFile = fmt.Sprintf("./temp/data/%v/daily/%v.csv", tag, session)
+	} else {
+		inputFile = fmt.Sprintf("./temp/data/%v/%v.csv", tag, session)
+	}
 	fmt.Println("inputFile:", inputFile)
 	fs, err := os.Open(inputFile)
 	if err != nil {
@@ -296,27 +388,52 @@ func dailyChart(w http.ResponseWriter, r *http.Request) {
 	defer fs.Close()
 }
 
-func genPages(w http.ResponseWriter, r *csv.Reader) *components.Page {
-	page := components.NewPage()
-	page.AddCharts(
-		drawLiquidPin(w, r),
-		drawGauge(w, r),
-	)
-	for _, n := range drawPieRoseRadius(w, r) {
-		page.AddCharts(n)
-	}
-	return page
-}
-
 func statusChart(w http.ResponseWriter, r *http.Request) {
 	rr, fs, _ := drawChart(w, r)
 	if rr == nil || fs == nil {
 		fmt.Println("Error: drawChart fail!")
 		return
 	}
-	page := genPages(w, rr)
+	page := components.NewPage()
+	for _, n := range drawPieRoseRadius(w, rr) {
+		page.AddCharts(n)
+	}
 	page.SetLayout(components.PageFlexLayout)
-	err := page.Render(io.MultiWriter(fs))
+	err := page.Render(io.MultiWriter(w))
+	if err != nil {
+		return
+	}
+	defer fs.Close()
+}
+
+func watermarkChart(w http.ResponseWriter, r *http.Request) {
+	rr, fs, _ := drawChart(w, r)
+	if rr == nil || fs == nil {
+		fmt.Println("Error: drawChart fail!")
+		return
+	}
+	page := components.NewPage()
+	for _, n := range drawLiquidPin(w, rr) {
+		page.AddCharts(n)
+	}
+	page.SetLayout(components.PageFlexLayout)
+	err := page.Render(io.MultiWriter(w))
+	if err != nil {
+		return
+	}
+	defer fs.Close()
+}
+
+func currentChart(w http.ResponseWriter, r *http.Request) {
+	rr, fs, _ := drawChart(w, r)
+	if rr == nil || fs == nil {
+		fmt.Println("Error: drawChart fail!")
+		return
+	}
+	page := components.NewPage()
+	page.AddCharts(drawEffectScatter(w, rr))
+	page.SetLayout(components.PageFlexLayout)
+	err := page.Render(io.MultiWriter(w))
 	if err != nil {
 		return
 	}
@@ -375,12 +492,54 @@ func chartHttpServer() {
 	router := mux.NewRouter().StrictSlash(false)
 	router.HandleFunc("/", statisticsChart)
 	router.HandleFunc("/{tag}/{session}/statistics", statisticsChart)
-	router.HandleFunc("/{tag}/{session}/daily", dailyChart)
 	router.HandleFunc("/{tag}/{session}/status", statusChart)
+	router.HandleFunc("/{tag}/{session}/daily", dailyChart)
+	router.HandleFunc("/{tag}/temperature/current", currentChart)
+	router.HandleFunc("/{tag}/temperature/watermark", watermarkChart)
 	router.HandleFunc("/upload", uploadHandler)
 	log.Fatal(http.ListenAndServe(":4321", router))
 }
 
+func FileModTime(dir string) string {
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	var modTime time.Time
+	var name []string
+	for _, fi := range files {
+		if fi.Mode().IsRegular() {
+			if !fi.ModTime().Before(modTime) {
+				if fi.ModTime().After(modTime) {
+					modTime = fi.ModTime()
+					name = name[:0]
+				}
+				name = append(name, fi.Name())
+			}
+		}
+	}
+	fmt.Println("======================dir: ", dir)
+	fmt.Println("======================names: ", name)
+	if len(name) > 0 {
+		fmt.Println(modTime, name)
+	}
+	return string(name[0])
+}
+
+func chartFileServer() {
+	p, _ := filepath.Abs(filepath.Dir(os.Args[0]))
+	http.Handle("/", http.FileServer(http.Dir(p)))
+	err := http.ListenAndServe(":8088", nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
 func main() {
-	chartHttpServer()
+	_, _ = fmt.Fprintf(os.Stderr, chartInformation, authorInformation, versionInformation)
+	go chartHttpServer()
+	go chartFileServer()
+	// loop
+	select {}
 }

@@ -8,5 +8,4 @@ require (
 	github.com/go-echarts/go-echarts/v2 v2.2.4
 	github.com/gorilla/mux v1.8.0
 	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
-	golang.org/x/sys v0.0.0-20191210023423-ac6580df4449
 )

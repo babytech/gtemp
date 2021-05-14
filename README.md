@@ -7,7 +7,7 @@ Monitor the thermal and temperature history of your device
 
 - Version:
   -
-  **0.1.0**
+  **0.1.1**
 
 - Requirements
   -
@@ -108,4 +108,6 @@ send signal to a master process: stop, quit, reopen, reload
   0.0.9 --- support FUSE function and generate temperature of each sensor as file node on mount directory
 
   0.1.0 --- support show history temperature from csv file
+
+  0.1.1 --- support http file server and show current temperature on web
 

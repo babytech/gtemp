@@ -132,7 +132,7 @@ func (g *TempSensorConfig) doGenCsvStatistics(file string) {
 }
 
 func createCsvDaily(file string) (*os.File, string) {
-	dir := filepath.Dir(file)
+	dir := filepath.Dir(file) + "/daily"
 	date := time.Now().Format("2006-01-02")
 	base := "daily-" + date + ".csv"
 	if _, err := os.Stat(dir); err == nil {
