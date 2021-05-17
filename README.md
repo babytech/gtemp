@@ -33,6 +33,10 @@ Monitor the thermal and temperature history of your device
   -
 ![](images/gtemp.png)
 
+- Runtime:
+  -
+![](images/runtime.png)
+
 - Usage
   -
   gtemp [-hvVtTrwf] [-s signal] [-j json_file] [-m mount_point] [-p prefix] [-c csv_file] [-d data_file] [-n notify_file] [-e size]
