@@ -93,7 +93,7 @@ func drawLiquidPin(w http.ResponseWriter, r *csv.Reader) []*charts.Liquid {
 }
 
 func drawEffectScatter(w http.ResponseWriter, r *csv.Reader) *charts.EffectScatter {
-	var time string
+	var date string
 	es := charts.NewEffectScatter()
 	row := make([]string, 0)
 	temp := make([]opts.EffectScatterData, 0)
@@ -114,7 +114,7 @@ func drawEffectScatter(w http.ResponseWriter, r *csv.Reader) *charts.EffectScatt
 		if err == io.EOF {
 			break
 		}
-		time = row[0]
+		date = row[0]
 		temp = make([]opts.EffectScatterData, 0)
 		for i := 1; i < len(row); i++ {
 			temp = append(temp, opts.EffectScatterData{Value: row[i]})
@@ -127,7 +127,7 @@ func drawEffectScatter(w http.ResponseWriter, r *csv.Reader) *charts.EffectScatt
 			Height: "600px",
 		}),
 		charts.WithTitleOpts(opts.Title{
-			Title: time,
+			Title: date,
 		}),
 		charts.WithYAxisOpts(opts.YAxis{
 			Name: "Temperature value",
@@ -242,7 +242,7 @@ func drawLineDaily(w http.ResponseWriter, r *csv.Reader, fileName string) {
 			Name: "Time Slot",
 		}),
 	)
-	time := make([]string, 0)
+	date := make([]string, 0)
 	temp := make(map[string][]opts.LineData)
 	name, err := r.Read()
 	if err != nil && err != io.EOF {
@@ -262,12 +262,12 @@ func drawLineDaily(w http.ResponseWriter, r *csv.Reader, fileName string) {
 			break
 		}
 		fmt.Println("row: ", row)
-		time = append(time, row[0])
+		date = append(date, row[0])
 		for i := 1; i < len(row); i++ {
 			temp[name[i]] = append(temp[name[i]], opts.LineData{Value: row[i]})
 		}
 	}
-	line.SetXAxis(time).
+	line.SetXAxis(date).
 		SetSeriesOptions(
 			charts.WithLineChartOpts(opts.LineChart{
 				Smooth: true,
@@ -351,7 +351,12 @@ func drawChart(w http.ResponseWriter, r *http.Request) (*csv.Reader, *os.File, s
 	fmt.Println("======dir:", "data/"+tag+"/"+session)
 	if session == "" {
 		dir := "./temp/data/" + tag + "/daily/"
-		inputFile = fmt.Sprintf("./temp/data/%v/daily/%v", tag, FileModTime(dir))
+		fileName := FileModTime(dir)
+		if fileName == nil {
+			http.Error(w, "File not found.", 404)
+			return nil, nil, ""
+		}
+		inputFile = fmt.Sprintf("./temp/data/%v/daily/%v", tag, fileName[0])
 	} else if strings.Contains(session, "daily") {
 		inputFile = fmt.Sprintf("./temp/data/%v/daily/%v.csv", tag, session)
 	} else {
@@ -500,10 +505,13 @@ func chartHttpServer() {
 	log.Fatal(http.ListenAndServe(":4321", router))
 }
 
-func FileModTime(dir string) string {
+func FileModTime(dir string) []string {
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		_, err2 := fmt.Fprintln(os.Stderr, err)
+		if err2 != nil {
+			return nil
+		}
 		os.Exit(1)
 	}
 	var modTime time.Time
@@ -524,7 +532,7 @@ func FileModTime(dir string) string {
 	if len(name) > 0 {
 		fmt.Println(modTime, name)
 	}
-	return string(name[0])
+	return name
 }
 
 func chartFileServer() {
