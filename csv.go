@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -103,6 +104,50 @@ func UnitTestReadCsv(fileName string) {
 	}
 }
 
+func (g *TempSensorConfig) doGenCsvFan(file string) {
+	f, err := os.Create(file)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	// Write as UTF-8 BOM
+	_, _ = f.WriteString("\xEF\xBB\xBF")
+	w := csv.NewWriter(f)
+	var data [][]string
+	var row []string
+	var title []string
+	var path string
+	var speed string
+	title = append(title, "fan")
+	rotorsNumber := len(g.Fans[0].Rotors)
+	for index := 0; index < len(g.Fans); index++ {
+		if rotorsNumber < len(g.Fans[index].Rotors) {
+			rotorsNumber = len(g.Fans[index].Rotors)
+		}
+	}
+	for number := 0; number < rotorsNumber; number++ {
+		rotorStr := "rotor" + strconv.Itoa(number)
+		title = append(title, rotorStr)
+	}
+	fmt.Println(">>> fan title: ", title)
+	data = append(data, title)
+	for index := 0; index < len(g.Fans); index++ {
+		row = append(row, g.Fans[index].Name)
+		for number := 0; number < len(g.Fans[index].Rotors); number++ {
+			path = g.Fans[index].Path + "/" + g.Fans[index].Name
+			speed = path + "/" + g.Fans[index].Rotors[number].Speed
+			content, _ := ReadFile(speed)
+			str := strings.Replace(content, "\n", "", -1)
+			row = append(row, str)
+		}
+		fmt.Println(">>> fan row: ", row)
+		data = append(data, row)
+		row = make([]string, 0)
+	}
+	_ = w.WriteAll(data)
+	w.Flush()
+}
+
 func (g *TempSensorConfig) doGenCsvStatistics(file string) {
 	fileName := CheckFile(file)
 	f, err := os.Create(fileName)
@@ -189,6 +234,29 @@ func (g *TempSensorConfig) doGenCsvDaily(fileName string) {
 	}
 }
 
+func (g *TempSensorConfig) genCsvFan(fileName string) {
+	go func() {
+		for {
+			time.Sleep(time.Second * time.Duration(g.Csv.Interval))
+			dir := filepath.Dir(fileName)
+			base := "fan.csv"
+			if _, err := os.Stat(dir); err == nil {
+			} else {
+				fmt.Println("Directory path not exists ", dir)
+				err := os.MkdirAll(dir, 0711)
+				if err != nil {
+					log.Println("Error creating directory")
+					log.Println(err)
+					return
+				}
+			}
+			file := CheckFile(filepath.Join(dir, base))
+			g.doGenCsvFan(file)
+			go g.UploadCsvFile(file)
+		}
+	}()
+}
+
 func (g *TempSensorConfig) genCsvStatistics(fileName string) {
 	go func() {
 		for {
@@ -217,6 +285,7 @@ func (g *TempSensorConfig) genCsvDaily(fileName string) {
 func (g *TempSensorConfig) genCsv(fileName string) int {
 	g.genCsvStatistics(fileName)
 	g.genCsvDaily(fileName)
+	g.genCsvFan(fileName)
 	return 0
 }
 

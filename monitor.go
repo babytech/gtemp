@@ -5,6 +5,8 @@ import (
 	"bazil.org/fuse/fs"
 	"fmt"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"strconv"
@@ -227,6 +229,7 @@ func ParseConfigurationFile(fileName string) *TempSensorConfig {
 	} else if TestJsonFile {
 		fmt.Printf("Test Configure JSON File: %s OK!\n", fileName)
 		fmt.Println("Parse Configure JSON File Result:")
+		fmt.Println(tempSensor.Profile)
 		fmt.Println(tempSensor.Sampling)
 		fmt.Println(tempSensor.Persistence)
 		fmt.Println(tempSensor.Csv)
@@ -235,9 +238,20 @@ func ParseConfigurationFile(fileName string) *TempSensorConfig {
 			fmt.Println(tempSensor.Sensors[index].Name)
 			fmt.Println(tempSensor.Sensors[index].File)
 		}
+		for index := 0; index < len(tempSensor.Fans); index++ {
+			fmt.Println(tempSensor.Fans[index])
+		}
 		os.Exit(0)
 	}
 	return tempSensor
+}
+
+func startPprof(port string) {
+	fmt.Println("Start pprof @port: ", port)
+	go func() {
+		fmt.Println(http.ListenAndServe(":"+port, nil))
+	}()
+	return
 }
 
 func StartMonitorTask() {
@@ -257,6 +271,8 @@ func StartMonitorTask() {
 		fmt.Println("Parse Configuration File Fail!")
 		goto failExit
 	}
+	// Start profile analysis
+	startPprof(tempSensor.Profile.Port)
 	csvFileForTempMonitor = prefix + csvFile
 	fmt.Println("CSV File:", csvFileForTempMonitor)
 	// Initial read data from eeprom file

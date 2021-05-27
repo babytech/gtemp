@@ -1,4 +1,7 @@
 {
+  "Profile": {
+    "port": "9999"
+  },
   "Sampling": {
     "low": -40,
     "high": 100,
@@ -12,16 +15,54 @@
   "Notify": {
     "file": "/tmp/temp/notify"
   },
-  "Csv" : {
+  "Csv": {
     "interval": 10,
     "file": "/tmp/temp/data/MF14/temp.csv",
     "ip": "127.0.0.1",
     "port": "4321"
   },
-  "Fuse" : {
+  "Fuse": {
     "path": "/dev/alu_temp",
     "mount": "/tmp/isam/slot_default/temp"
   },
+  "Fans": [
+    {
+      "name": "fan0",
+      "path": "/tmp/isam/slot_default/fan",
+      "presence": "presence",
+      "number": "rotor_num",
+      "rotors" : [
+        {
+          "name": "rotor0",
+          "speed": "rotor_0_actual_speed"
+        },
+        {
+          "name": "rotor1",
+          "speed": "rotor_1_actual_speed"
+        }
+      ]
+    },
+    {
+      "name": "fan1",
+      "path": "/tmp/isam/slot_default/fan",
+      "presence": "presence",
+      "number": "rotor_num",
+      "rotors" : [
+        {
+          "name": "rotor0",
+          "speed": "rotor_0_actual_speed"
+        },
+        {
+          "name": "rotor1",
+          "speed": "rotor_1_actual_speed"
+        },
+        {
+          "name": "rotor2",
+          "speed": "rotor_2_actual_speed"
+        }
+      ]
+    }
+  ],
   "Sensors": [
     {
       "name": "temp1",

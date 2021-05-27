@@ -6,6 +6,10 @@ import (
 	"io/ioutil"
 )
 
+type ProfileConfig struct {
+	Port string
+}
+
 type SamplingConfig struct {
 	Low      int
 	High     int
@@ -34,6 +38,19 @@ type FuseConfig struct {
 	Mount string
 }
 
+type RotorConfig struct {
+	Name  string
+	Speed string
+}
+
+type FanConfig struct {
+	Name     string
+	Path     string
+	Presence string
+	Number   string
+	Rotors   []RotorConfig
+}
+
 type SensorConfig struct {
 	Name               string
 	File               string
@@ -45,11 +62,13 @@ type SensorConfig struct {
 
 type TempSensorConfig struct {
 	RawData     []byte
+	Profile     ProfileConfig
 	Sampling    SamplingConfig
 	Persistence PersistenceConfig
 	Notify      NotifyConfig
 	Csv         CsvConfig
 	Fuse        FuseConfig
+	Fans        []FanConfig
 	Sensors     []SensorConfig
 }
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"github.com/go-echarts/go-echarts/v2/charts"
 	"github.com/go-echarts/go-echarts/v2/components"
@@ -12,6 +13,7 @@ import (
 	"io/ioutil"
 	"log"
 	"math"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -23,13 +25,62 @@ import (
 const versionInformation = "0.1.1"
 const authorInformation = "Babytech"
 const chartInformation = `
-         __               __
-   _____/ /_  ____ ______/ /_     Temperature Monitoring Web Tools
-  / ___/ __ \/ __ \/ ___/ __/                --- written by Golang
- / /__/ / / / /_/ / /  / /_       Author: %s
- \___/_/ /_/\__,_/_/   \__/       Version: %s
-
+============================================================================
+|           __               __     Temperature Monitoring Web Tools       |
+|     _____/ /_  ____ ______/ /_               --- written by Golang       |
+|    / ___/ __ \/ __ \/ ___/ __/    Author: %s                       |
+|   / /__/ / / / /_/ / /  / /_      Version: %s                         |
+|   \___/_/ /_/\__,_/_/   \__/      Http & File Server @IP: %s  |
+============================================================================
 `
+
+const ipPort = "8088"
+
+func externalIP() (net.IP, error) {
+	iFaces, err := net.Interfaces()
+	if err != nil {
+		return nil, err
+	}
+	for _, iFace := range iFaces {
+		if iFace.Flags&net.FlagUp == 0 {
+			continue
+		}
+		if iFace.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrS, err := iFace.Addrs()
+		if err != nil {
+			return nil, err
+		}
+		for _, addr := range addrS {
+			ip := getIpFromAddr(addr)
+			if ip == nil {
+				continue
+			}
+			return ip, nil
+		}
+	}
+	return nil, errors.New("connected to the network")
+}
+
+func getIpFromAddr(addr net.Addr) net.IP {
+	var ip net.IP
+	switch v := addr.(type) {
+	case *net.IPNet:
+		ip = v.IP
+	case *net.IPAddr:
+		ip = v.IP
+	}
+	if ip == nil || ip.IsLoopback() {
+		return nil
+	}
+	ip = ip.To4()
+	if ip == nil {
+		// not an ipv4 address
+		return nil
+	}
+	return ip
+}
 
 func drawLiquidPin(w http.ResponseWriter, r *csv.Reader) []*charts.Liquid {
 	var liquids []*charts.Liquid
@@ -93,7 +144,7 @@ func drawLiquidPin(w http.ResponseWriter, r *csv.Reader) []*charts.Liquid {
 }
 
 func drawEffectScatter(w http.ResponseWriter, r *csv.Reader) *charts.EffectScatter {
-	var date string
+	var timeStamp string
 	es := charts.NewEffectScatter()
 	row := make([]string, 0)
 	temp := make([]opts.EffectScatterData, 0)
@@ -114,7 +165,7 @@ func drawEffectScatter(w http.ResponseWriter, r *csv.Reader) *charts.EffectScatt
 		if err == io.EOF {
 			break
 		}
-		date = row[0]
+		timeStamp = row[0]
 		temp = make([]opts.EffectScatterData, 0)
 		for i := 1; i < len(row); i++ {
 			temp = append(temp, opts.EffectScatterData{Value: row[i]})
@@ -127,16 +178,17 @@ func drawEffectScatter(w http.ResponseWriter, r *csv.Reader) *charts.EffectScatt
 			Height: "600px",
 		}),
 		charts.WithTitleOpts(opts.Title{
-			Title: date,
+			Title: "温度传感器实时温度值" + "    当前时间:" + timeStamp,
+			Top:   "top, omitempty",
 		}),
 		charts.WithYAxisOpts(opts.YAxis{
-			Name: "Temperature value",
+			Name: "温度值",
 			SplitLine: &opts.SplitLine{
 				Show: true,
 			},
 		}),
 		charts.WithXAxisOpts(opts.XAxis{
-			Name: "Sensors",
+			Name: "温度传感器",
 		}),
 	)
 	es.SetXAxis(name[1:]).AddSeries("temp", temp,
@@ -152,6 +204,70 @@ func drawEffectScatter(w http.ResponseWriter, r *csv.Reader) *charts.EffectScatt
 			}),
 		)
 	return es
+}
+
+func drawFanRotor(w http.ResponseWriter, r *csv.Reader) []*charts.EffectScatter {
+	var fans []*charts.EffectScatter
+	var fan string
+	rotors := make([]opts.EffectScatterData, 0)
+	row := make([]string, 0)
+	name, err := r.Read()
+	if err != nil && err != io.EOF {
+		http.Error(w, "File read failed.", 404)
+		fmt.Println("r.Read() Error:", err)
+	}
+	if err == io.EOF {
+		fmt.Println("r.Read() Error:", err)
+	}
+	for {
+		row, err = r.Read()
+		if err != nil && err != io.EOF {
+			http.Error(w, "File read failed.", 404)
+			fmt.Println("r.Read() Error:", err)
+		}
+		if err == io.EOF {
+			break
+		}
+		fan = row[0]
+		es := charts.NewEffectScatter()
+		rotors = make([]opts.EffectScatterData, 0)
+		for i := 1; i < len(row); i++ {
+			rotors = append(rotors, opts.EffectScatterData{Value: row[i]})
+		}
+		es.SetGlobalOptions(
+			charts.WithTooltipOpts(opts.Tooltip{Show: true}),
+			charts.WithInitializationOpts(opts.Initialization{
+				Width:  "1200px",
+				Height: "600px",
+			}),
+			charts.WithTitleOpts(opts.Title{
+				Title: "风扇" + fan + "马达实时转速",
+			}),
+			charts.WithYAxisOpts(opts.YAxis{
+				Name: "实时转速",
+				SplitLine: &opts.SplitLine{
+					Show: true,
+				},
+			}),
+			charts.WithXAxisOpts(opts.XAxis{
+				Name: "风扇马达",
+			}),
+		)
+		es.SetXAxis(name[1:]).AddSeries("fan", rotors,
+			charts.WithRippleEffectOpts(opts.RippleEffect{
+				Period:    4,
+				Scale:     10,
+				BrushType: "fill",
+			})).
+			SetSeriesOptions(charts.WithLabelOpts(
+				opts.Label{
+					Show:     true,
+					Position: "top",
+				}),
+			)
+		fans = append(fans, es)
+	}
+	return fans
 }
 
 var (
@@ -177,7 +293,7 @@ func drawPieRoseRadius(w http.ResponseWriter, r *csv.Reader) []*charts.Pie {
 			pie := charts.NewPie()
 			pie.SetGlobalOptions(
 				charts.WithTitleOpts(opts.Title{
-					Title: row[0],
+					Title: "温度传感器" + row[0] + "温度区间统计图",
 				}),
 			)
 			items := make([]opts.PieData, 0)
@@ -211,8 +327,54 @@ func drawPieRoseRadius(w http.ResponseWriter, r *csv.Reader) []*charts.Pie {
 	return pies
 }
 
+func drawFanSpeed(w http.ResponseWriter, r *csv.Reader) []*charts.Gauge {
+	var gauges []*charts.Gauge
+	var gauge *charts.Gauge
+	rotorName := make([]string, 0)
+	rowLine := 0
+	for {
+		row, err := r.Read()
+		if err != nil && err != io.EOF {
+			http.Error(w, "File read failed.", 404)
+			fmt.Println("r.Read() Error:", err)
+		}
+		if err == io.EOF {
+			break
+		}
+		fmt.Println("row: ", row)
+		if rowLine == 0 {
+			rotorName = append(rotorName, row[1:]...)
+		} else {
+			for i, n := range row {
+				gauge = charts.NewGauge()
+				gauge.SetGlobalOptions(
+					charts.WithTitleOpts(opts.Title{
+						Title: "风扇#" + row[0],
+					}),
+				)
+				items := make([]opts.GaugeData, 0)
+				if i != 0 {
+					v, err := strconv.Atoi(n)
+					if err != nil {
+						fmt.Println(err)
+					}
+					if v != 0 {
+						items = append(items, opts.GaugeData{Name: rotorName[i-1] + "马达转速", Value: v})
+						fmt.Println("name:", rotorName[i-1], "value:", v)
+						gauge.AddSeries("rotor", items)
+						gauges = append(gauges, gauge)
+					}
+				}
+			}
+		}
+		rowLine++
+	}
+	return gauges
+}
+
 func drawLineDaily(w http.ResponseWriter, r *csv.Reader, fileName string) {
-	titleName := "Temperature " + fileName
+	timeStamp := strings.TrimPrefix(fileName, "daily-")
+	titleName := "日期:" + timeStamp + "    温度值统计"
 	line := charts.NewLine()
 	line.SetGlobalOptions(
 		charts.WithTooltipOpts(opts.Tooltip{Show: true}),
@@ -304,9 +466,17 @@ func drawBar(w http.ResponseWriter, r *csv.Reader) {
 			XAxisIndex: []int{0},
 		}),
 		charts.WithTitleOpts(opts.Title{
-			Title: "temp sensor statistics",
-			//Subtitle: "MF14 ISR2103.46",
-			Left: "10%",
+			Title: "温度传感器温度区间发生次数统计图",
+			Left:  "10%",
+		}),
+		charts.WithYAxisOpts(opts.YAxis{
+			Name: "发生次数",
+			SplitLine: &opts.SplitLine{
+				Show: false,
+			},
+		}),
+		charts.WithXAxisOpts(opts.XAxis{
+			Name: "温度区间",
 		}))
 	rowLine := 0
 	for {
@@ -327,8 +497,6 @@ func drawBar(w http.ResponseWriter, r *csv.Reader) {
 			bar.AddSeries(row[0], items).SetSeriesOptions(
 				charts.WithMarkPointNameTypeItemOpts(
 					opts.MarkPointNameTypeItem{Name: "Maximum", Type: "max"},
-					//opts.MarkPointNameTypeItem{Name: "Average", Type: "average"},
-					//opts.MarkPointNameTypeItem{Name: "Minimum", Type: "min"},
 				),
 				charts.WithMarkPointStyleOpts(
 					opts.MarkPointStyle{Label: &opts.Label{Show: true}},
@@ -404,6 +572,48 @@ func statusChart(w http.ResponseWriter, r *http.Request) {
 		page.AddCharts(n)
 	}
 	page.SetLayout(components.PageFlexLayout)
+	err := page.Render(io.MultiWriter(w))
+	if err != nil {
+		return
+	}
+	defer fs.Close()
+}
+
+func fanSpeedChart(w http.ResponseWriter, r *http.Request) {
+	rr, fs, _ := drawChart(w, r)
+	if rr == nil || fs == nil {
+		fmt.Println("Error: drawChart fail!")
+		return
+	}
+	page := components.NewPage()
+	for _, n := range drawFanSpeed(w, rr) {
+		page.AddCharts(n)
+	}
+	page.SetLayout(components.PageFlexLayout)
+	url := "http://" + getServerIP() + ":" + ipPort + "/"
+	fmt.Println("URL: ", url)
+	page.AssetsHost = url
+	err := page.Render(io.MultiWriter(w))
+	if err != nil {
+		return
+	}
+	defer fs.Close()
+}
+
+func fanRotorChart(w http.ResponseWriter, r *http.Request) {
+	rr, fs, _ := drawChart(w, r)
+	if rr == nil || fs == nil {
+		fmt.Println("Error: drawChart fail!")
+		return
+	}
+	page := components.NewPage()
+	for _, n := range drawFanRotor(w, rr) {
+		page.AddCharts(n)
+	}
+	page.SetLayout(components.PageFlexLayout)
+	url := "http://" + getServerIP() + ":" + ipPort + "/"
+	fmt.Println("URL: ", url)
+	page.AssetsHost = url
 	err := page.Render(io.MultiWriter(w))
 	if err != nil {
 		return
@@ -493,18 +703,6 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func chartHttpServer() {
-	router := mux.NewRouter().StrictSlash(false)
-	router.HandleFunc("/", statisticsChart)
-	router.HandleFunc("/{tag}/{session}/statistics", statisticsChart)
-	router.HandleFunc("/{tag}/{session}/status", statusChart)
-	router.HandleFunc("/{tag}/{session}/daily", dailyChart)
-	router.HandleFunc("/{tag}/temperature/current", currentChart)
-	router.HandleFunc("/{tag}/temperature/watermark", watermarkChart)
-	router.HandleFunc("/upload", uploadHandler)
-	log.Fatal(http.ListenAndServe(":4321", router))
-}
-
 func FileModTime(dir string) []string {
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -527,8 +725,8 @@ func FileModTime(dir string) []string {
 			}
 		}
 	}
-	fmt.Println("======================dir: ", dir)
-	fmt.Println("======================names: ", name)
+	fmt.Println("===> dir: ", dir)
+	fmt.Println("===> names: ", name)
 	if len(name) > 0 {
 		fmt.Println(modTime, name)
 	}
@@ -538,14 +736,36 @@ func FileModTime(dir string) []string {
 func chartFileServer() {
 	p, _ := filepath.Abs(filepath.Dir(os.Args[0]))
 	http.Handle("/", http.FileServer(http.Dir(p)))
-	err := http.ListenAndServe(":8088", nil)
+	err := http.ListenAndServe(":"+ipPort, nil)
 	if err != nil {
 		fmt.Println(err)
 	}
 }
 
+func getServerIP() string {
+	ip, err := externalIP()
+	if err != nil {
+		fmt.Println(err)
+	}
+	return ip.String()
+}
+
+func chartHttpServer() {
+	router := mux.NewRouter().StrictSlash(false)
+	router.HandleFunc("/", statisticsChart)
+	router.HandleFunc("/{tag}/{session}/statistics", statisticsChart)
+	router.HandleFunc("/{tag}/{session}/status", statusChart)
+	router.HandleFunc("/{tag}/{session}/daily", dailyChart)
+	router.HandleFunc("/{tag}/{session}/speed", fanSpeedChart)
+	router.HandleFunc("/{tag}/{session}/rotor", fanRotorChart)
+	router.HandleFunc("/{tag}/temperature/current", currentChart)
+	router.HandleFunc("/{tag}/temperature/watermark", watermarkChart)
+	router.HandleFunc("/upload", uploadHandler)
+	log.Fatal(http.ListenAndServe(":4321", router))
+}
+
 func main() {
-	_, _ = fmt.Fprintf(os.Stderr, chartInformation, authorInformation, versionInformation)
+	_, _ = fmt.Fprintf(os.Stderr, chartInformation, authorInformation, versionInformation, getServerIP())
 	go chartHttpServer()
 	go chartFileServer()
 	// loop

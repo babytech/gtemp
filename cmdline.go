@@ -26,7 +26,7 @@ var (
 	eepromSize   uint
 )
 
-const VersionInformation = "0.1.1"
+const VersionInformation = "0.1.2"
 const AuthorInformation = "Babytech"
 const welcomeInformation = `
          __
