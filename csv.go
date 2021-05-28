@@ -116,31 +116,60 @@ func (g *TempSensorConfig) doGenCsvFan(file string) {
 	var data [][]string
 	var row []string
 	var title []string
-	var path string
+	var dir string
+	var presence string
+	var rotorNumber string
 	var speed string
+	var content string
+	// generate title for first row of csv
 	title = append(title, "fan")
-	rotorsNumber := len(g.Fans[0].Rotors)
-	for index := 0; index < len(g.Fans); index++ {
-		if rotorsNumber < len(g.Fans[index].Rotors) {
-			rotorsNumber = len(g.Fans[index].Rotors)
-		}
-	}
-	for number := 0; number < rotorsNumber; number++ {
-		rotorStr := "rotor" + strconv.Itoa(number)
-		title = append(title, rotorStr)
-	}
-	fmt.Println(">>> fan title: ", title)
 	data = append(data, title)
+	rotorMaxNum := 0
+	// generate rest rows for csv
 	for index := 0; index < len(g.Fans); index++ {
+		dir = g.Fans[index].Path + "/" + g.Fans[index].Name
+		presence = dir + "/" + g.Fans[index].Presence
+		content, _ = ReadFile(presence)
+		present := strings.Replace(content, "\n", "", -1)
+		isPresent, err := strconv.Atoi(present)
+		if err != nil || isPresent == 0 {
+			fmt.Printf(">>> Fan #%d is not present!\n", index)
+			continue
+		}
+		rotorNumber = dir + "/" + g.Fans[index].Number
+		content, _ = ReadFile(rotorNumber)
+		rotorNum := strings.Replace(content, "\n", "", -1)
+		rotorActualNum, err := strconv.Atoi(rotorNum)
+		if err != nil {
+			fmt.Printf(">>> Fan #%d rotor number read error!\n", index)
+			return
+		}
+		if rotorActualNum > len(g.Fans[index].Rotors) {
+			fmt.Printf(">>> Fan #%d actual rotor number: %d is larger than %d from json file\n",
+				index, rotorActualNum, len(g.Fans[index].Rotors))
+			rotorActualNum = len(g.Fans[index].Rotors)
+		}
+		fmt.Printf(">>> Fan #%d actual rotor number is setting to: %d now\n", index, rotorActualNum)
+		if rotorMaxNum < rotorActualNum {
+			rotorMaxNum = rotorActualNum
+		}
+		title = make([]string, 0)
+		// update title for first row of csv
+		title = append(title, "fan")
+		for number := 0; number < rotorMaxNum; number++ {
+			rotorStr := "rotor" + strconv.Itoa(number)
+			title = append(title, rotorStr)
+		}
+		fmt.Println(">>> Fan Title: ", title)
+		data[0] = title
 		row = append(row, g.Fans[index].Name)
-		for number := 0; number < len(g.Fans[index].Rotors); number++ {
-			path = g.Fans[index].Path + "/" + g.Fans[index].Name
-			speed = path + "/" + g.Fans[index].Rotors[number].Speed
-			content, _ := ReadFile(speed)
+		for number := 0; number < rotorActualNum; number++ {
+			speed = dir + "/" + g.Fans[index].Rotors[number].Speed
+			content, _ = ReadFile(speed)
 			str := strings.Replace(content, "\n", "", -1)
 			row = append(row, str)
 		}
-		fmt.Println(">>> fan row: ", row)
+		fmt.Println(">>> Fan row: ", row)
 		data = append(data, row)
 		row = make([]string, 0)
 	}

@@ -7,7 +7,7 @@ Monitor the thermal and temperature history of your device
 
 - Version:
   -
-  **0.1.2**
+  **0.1.3**
 
 - Requirements
   -
@@ -116,4 +116,6 @@ send signal to a master process: stop, quit, reopen, reload
   0.1.1 --- support http file server and show current temperature on web
 
   0.1.2 --- provide to show current speed of fan rotor
+
+  0.1.3 --- support check presence of fan and generate csv file according to actual rotor numbers
 
