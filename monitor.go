@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bazil.org/fuse"
-	"bazil.org/fuse/fs"
 	"fmt"
 	"log"
 	"net/http"
@@ -13,15 +11,21 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"bazil.org/fuse"
+	"bazil.org/fuse/fs"
 )
 
+// 每个传感器的字节长度
 const ByteLengthPerTemp = 128
 const ByteLengthPerCount = 4
 
+// 更新当前温度值
 func (g *TempSensorConfig) updateCurrentTempValue(temp int, index int) {
 	g.Sensors[index].value = temp
 }
 
+// 更新数据缓存
 func (g *TempSensorConfig) updateDataCache(currentTemp int, index int) {
 	if currentTemp < g.Sampling.Low {
 		currentTemp = g.Sampling.Low - g.Sampling.Step
@@ -37,9 +41,10 @@ func (g *TempSensorConfig) updateDataCache(currentTemp int, index int) {
 	fmt.Printf("g.Sensors[%d].Cache[%d] : %d\n", index, offset, g.Sensors[index].Cache[offset])
 }
 
+// 将数据写入持久化存储
 func (g *TempSensorConfig) writeDataToPersistence() {
 	fmt.Println("Flushing data cache into persistence storage...")
-	//merge all sensors cache together
+	// 合并所有传感器的缓存
 	g.RawData = make([]byte, 0)
 	for index := 0; index < len(g.Sensors); index++ {
 		out := []byte(g.Sensors[index].Name)
@@ -133,13 +138,17 @@ func (g *TempSensorConfig) StartTimer() {
 }
 
 func (g *TempSensorConfig) SignalListen() {
+	// 创建一个带缓冲的通道
+	c := make(chan os.Signal, 1)
+
+	// 使用带缓冲的通道注册信号
+	signal.Notify(c, syscall.SIGUSR2)
+
+	// 处理信号
 	go func() {
-		c := make(chan os.Signal)
-		signal.Notify(c, syscall.SIGUSR2)
-		for {
-			s := <-c
-			// Receive signal and do custom job
-			fmt.Println("get signal:", s)
+		for sig := range c {
+			// 处理接收到的信号
+			fmt.Printf("Received signal: %v\n", sig)
 			g.writeDataToPersistence()
 		}
 	}()

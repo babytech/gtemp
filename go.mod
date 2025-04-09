@@ -1,11 +1,11 @@
 module gtemp
 
-go 1.13
+go 1.16
 
 require (
-	bazil.org/fuse v0.0.0-20200524192727-fb710f7dfd05
-	github.com/fsnotify/fsnotify v1.4.9
-	github.com/go-echarts/go-echarts/v2 v2.2.4
-	github.com/gorilla/mux v1.8.0
-	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
+	bazil.org/fuse v0.0.0-20230120002735-62a210ff1fd5 // indirect
+	github.com/fsnotify/fsnotify v1.7.0 // indirect
+	github.com/go-echarts/go-echarts/v2 v2.5.1 // indirect
+	github.com/gorilla/mux v1.8.1 // indirect
+	golang.org/x/net v0.27.0 // indirect
 )

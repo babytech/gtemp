@@ -4,11 +4,6 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
-	"github.com/go-echarts/go-echarts/v2/charts"
-	"github.com/go-echarts/go-echarts/v2/components"
-	"github.com/go-echarts/go-echarts/v2/opts"
-	"github.com/go-echarts/go-echarts/v2/types"
-	"github.com/gorilla/mux"
 	"io"
 	"io/ioutil"
 	"log"
@@ -20,9 +15,15 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/go-echarts/go-echarts/v2/charts"
+	"github.com/go-echarts/go-echarts/v2/components"
+	"github.com/go-echarts/go-echarts/v2/opts"
+	"github.com/go-echarts/go-echarts/v2/types"
+	"github.com/gorilla/mux"
 )
 
-const versionInformation = "0.1.1"
+const versionInformation = "0.1.2"
 const authorInformation = "Babytech"
 const chartInformation = `
 ============================================================================
@@ -82,24 +83,23 @@ func getIpFromAddr(addr net.Addr) net.IP {
 	return ip
 }
 
-func drawLiquidPin(w http.ResponseWriter, r *csv.Reader) []*charts.Liquid {
+func drawLiquidPin(w http.ResponseWriter, r *csv.Reader, name []string) []*charts.Liquid {
 	var liquids []*charts.Liquid
 	var liquidTitle string
 	var data []float32
 	var ratio float32
 	row := make([]string, 0)
-	rowData := make([]string, 0)
-	item := make([]opts.LiquidData, 0)
 	const lowValue = -30
 	const highValue = 80
-	name, err := r.Read()
-	if err != nil && err != io.EOF {
+	if _, err := r.Read(); err != nil && err != io.EOF {
 		http.Error(w, "File read failed.", 404)
 		fmt.Println("r.Read() Error:", err)
 	}
+	_, err := r.Read()
 	if err == io.EOF {
 		fmt.Println("r.Read() Error:", err)
 	}
+	var rowData []string
 	for {
 		rowData, err = r.Read()
 		if err != nil && err != io.EOF {
@@ -114,6 +114,7 @@ func drawLiquidPin(w http.ResponseWriter, r *csv.Reader) []*charts.Liquid {
 	//fmt.Println("row: ", row)
 	for i := 1; i < len(row); i++ {
 		liquid := charts.NewLiquid()
+		var item []opts.LiquidData
 		item = make([]opts.LiquidData, 0)
 		value, _ := strconv.Atoi(row[i])
 		if value > 0 {
@@ -125,7 +126,7 @@ func drawLiquidPin(w http.ResponseWriter, r *csv.Reader) []*charts.Liquid {
 		for j := 0; j < len(data); j++ {
 			item = append(item, opts.LiquidData{Value: data[j]})
 		}
-		liquidTitle = "温度传感器" + string(name[i]) + "温度水位"
+		liquidTitle = "温度传感器" + name[i] + "温度水位"
 		liquid.SetGlobalOptions(
 			charts.WithTitleOpts(opts.Title{
 				Title: liquidTitle,
@@ -134,7 +135,7 @@ func drawLiquidPin(w http.ResponseWriter, r *csv.Reader) []*charts.Liquid {
 		liquid.AddSeries("liquid", item).
 			SetSeriesOptions(
 				charts.WithLiquidChartOpts(opts.LiquidChart{
-					IsWaveAnimation: true,
+					IsWaveAnimation: opts.Bool(true),
 					Shape:           "pin",
 				}),
 			)
@@ -146,8 +147,7 @@ func drawLiquidPin(w http.ResponseWriter, r *csv.Reader) []*charts.Liquid {
 func drawEffectScatter(w http.ResponseWriter, r *csv.Reader) *charts.EffectScatter {
 	var timeStamp string
 	es := charts.NewEffectScatter()
-	row := make([]string, 0)
-	temp := make([]opts.EffectScatterData, 0)
+	// Removed unused re-declaration of temp
 	name, err := r.Read()
 	if err != nil && err != io.EOF {
 		http.Error(w, "File read failed.", 404)
@@ -156,6 +156,8 @@ func drawEffectScatter(w http.ResponseWriter, r *csv.Reader) *charts.EffectScatt
 	if err == io.EOF {
 		fmt.Println("r.Read() Error:", err)
 	}
+	var temp []opts.EffectScatterData
+	var row []string
 	for {
 		row, err = r.Read()
 		if err != nil && err != io.EOF {
@@ -172,7 +174,7 @@ func drawEffectScatter(w http.ResponseWriter, r *csv.Reader) *charts.EffectScatt
 		}
 	}
 	es.SetGlobalOptions(
-		charts.WithTooltipOpts(opts.Tooltip{Show: true}),
+		charts.WithTooltipOpts(opts.Tooltip{Show: opts.Bool(true)}),
 		charts.WithInitializationOpts(opts.Initialization{
 			Width:  "1200px",
 			Height: "600px",
@@ -184,7 +186,7 @@ func drawEffectScatter(w http.ResponseWriter, r *csv.Reader) *charts.EffectScatt
 		charts.WithYAxisOpts(opts.YAxis{
 			Name: "温度值",
 			SplitLine: &opts.SplitLine{
-				Show: true,
+				Show: opts.Bool(true),
 			},
 		}),
 		charts.WithXAxisOpts(opts.XAxis{
@@ -199,7 +201,7 @@ func drawEffectScatter(w http.ResponseWriter, r *csv.Reader) *charts.EffectScatt
 		})).
 		SetSeriesOptions(charts.WithLabelOpts(
 			opts.Label{
-				Show:     true,
+				Show:     opts.Bool(true),
 				Position: "top",
 			}),
 		)
@@ -209,9 +211,10 @@ func drawEffectScatter(w http.ResponseWriter, r *csv.Reader) *charts.EffectScatt
 func drawFanRotor(w http.ResponseWriter, r *csv.Reader) []*charts.EffectScatter {
 	var fans []*charts.EffectScatter
 	var fan string
-	rotors := make([]opts.EffectScatterData, 0)
-	row := make([]string, 0)
+	var rotors []opts.EffectScatterData // Declare rotors
+	es := charts.NewEffectScatter()     // Initialize es as a new EffectScatter chart
 	name, err := r.Read()
+	var row []string
 	if err != nil && err != io.EOF {
 		http.Error(w, "File read failed.", 404)
 		fmt.Println("r.Read() Error:", err)
@@ -229,13 +232,12 @@ func drawFanRotor(w http.ResponseWriter, r *csv.Reader) []*charts.EffectScatter 
 			break
 		}
 		fan = row[0]
-		es := charts.NewEffectScatter()
 		rotors = make([]opts.EffectScatterData, 0)
 		for i := 1; i < len(row); i++ {
 			rotors = append(rotors, opts.EffectScatterData{Value: row[i]})
 		}
 		es.SetGlobalOptions(
-			charts.WithTooltipOpts(opts.Tooltip{Show: true}),
+			charts.WithTooltipOpts(opts.Tooltip{Show: opts.Bool(true)}),
 			charts.WithInitializationOpts(opts.Initialization{
 				Width:  "1200px",
 				Height: "600px",
@@ -246,7 +248,7 @@ func drawFanRotor(w http.ResponseWriter, r *csv.Reader) []*charts.EffectScatter 
 			charts.WithYAxisOpts(opts.YAxis{
 				Name: "实时转速",
 				SplitLine: &opts.SplitLine{
-					Show: true,
+					Show: opts.Bool(true),
 				},
 			}),
 			charts.WithXAxisOpts(opts.XAxis{
@@ -261,7 +263,7 @@ func drawFanRotor(w http.ResponseWriter, r *csv.Reader) []*charts.EffectScatter 
 			})).
 			SetSeriesOptions(charts.WithLabelOpts(
 				opts.Label{
-					Show:     true,
+					Show:     opts.Bool(true),
 					Position: "top",
 				}),
 			)
@@ -312,7 +314,7 @@ func drawPieRoseRadius(w http.ResponseWriter, r *csv.Reader) []*charts.Pie {
 			pie.AddSeries("pie", items).
 				SetSeriesOptions(
 					charts.WithLabelOpts(opts.Label{
-						Show:      true,
+						Show:      opts.Bool(true),
 						Formatter: "{b}: {c}",
 					}),
 					charts.WithPieChartOpts(opts.PieChart{
@@ -377,8 +379,8 @@ func drawLineDaily(w http.ResponseWriter, r *csv.Reader, fileName string) {
 	titleName := "日期:" + timeStamp + "    温度值统计"
 	line := charts.NewLine()
 	line.SetGlobalOptions(
-		charts.WithTooltipOpts(opts.Tooltip{Show: true}),
-		charts.WithLegendOpts(opts.Legend{Show: true,
+		charts.WithTooltipOpts(opts.Tooltip{Show: opts.Bool(true)}),
+		charts.WithLegendOpts(opts.Legend{Show: opts.Bool(true),
 			Right: "10%",
 		}),
 		charts.WithInitializationOpts(opts.Initialization{
@@ -397,7 +399,7 @@ func drawLineDaily(w http.ResponseWriter, r *csv.Reader, fileName string) {
 		charts.WithYAxisOpts(opts.YAxis{
 			Name: "Degree Celsius",
 			SplitLine: &opts.SplitLine{
-				Show: false,
+				Show: opts.Bool(false),
 			},
 		}),
 		charts.WithXAxisOpts(opts.XAxis{
@@ -432,7 +434,7 @@ func drawLineDaily(w http.ResponseWriter, r *csv.Reader, fileName string) {
 	line.SetXAxis(date).
 		SetSeriesOptions(
 			charts.WithLineChartOpts(opts.LineChart{
-				Smooth: true,
+				Smooth: opts.Bool(true),
 			}),
 		)
 	for k, v := range temp {
@@ -440,7 +442,7 @@ func drawLineDaily(w http.ResponseWriter, r *csv.Reader, fileName string) {
 			line.AddSeries(k, v).
 				SetSeriesOptions(
 					charts.WithLabelOpts(
-						opts.Label{Show: true},
+						opts.Label{Show: opts.Bool(true)},
 					),
 				)
 		}
@@ -451,8 +453,8 @@ func drawLineDaily(w http.ResponseWriter, r *csv.Reader, fileName string) {
 func drawBar(w http.ResponseWriter, r *csv.Reader) {
 	bar := charts.NewBar()
 	bar.SetGlobalOptions(
-		charts.WithTooltipOpts(opts.Tooltip{Show: true}),
-		charts.WithLegendOpts(opts.Legend{Show: true,
+		charts.WithTooltipOpts(opts.Tooltip{Show: opts.Bool(true)}),
+		charts.WithLegendOpts(opts.Legend{Show: opts.Bool(true),
 			Right: "10%",
 		}),
 		charts.WithInitializationOpts(opts.Initialization{
@@ -472,7 +474,7 @@ func drawBar(w http.ResponseWriter, r *csv.Reader) {
 		charts.WithYAxisOpts(opts.YAxis{
 			Name: "发生次数",
 			SplitLine: &opts.SplitLine{
-				Show: false,
+				Show: opts.Bool(false),
 			},
 		}),
 		charts.WithXAxisOpts(opts.XAxis{
@@ -499,7 +501,7 @@ func drawBar(w http.ResponseWriter, r *csv.Reader) {
 					opts.MarkPointNameTypeItem{Name: "Maximum", Type: "max"},
 				),
 				charts.WithMarkPointStyleOpts(
-					opts.MarkPointStyle{Label: &opts.Label{Show: true}},
+					opts.MarkPointStyle{Label: &opts.Label{Show: opts.Bool(true)}},
 				),
 			)
 		} else {
@@ -628,7 +630,8 @@ func watermarkChart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	page := components.NewPage()
-	for _, n := range drawLiquidPin(w, rr) {
+	name, _ := rr.Read()
+	for _, n := range drawLiquidPin(w, rr, name) {
 		page.AddCharts(n)
 	}
 	page.SetLayout(components.PageFlexLayout)
